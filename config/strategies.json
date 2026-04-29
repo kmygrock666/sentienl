@@ -1,0 +1,446 @@
+{
+  "long_strategies": [
+    {
+      "strategy_id": "mvp_ma_crossover",
+      "name": "黃金交叉",
+      "version": "1.1.0",
+      "description": "close > ma5 and ma5 > ma20 and close > ma200",
+      "is_active": false,
+      "params_json": {
+        "min_history_days": 200,
+        "conditions": [
+          {
+            "name": "close_gt_ma5",
+            "field": "close",
+            "operator": ">",
+            "target": "ma5"
+          },
+          {
+            "name": "ma5_gt_ma20",
+            "field": "ma5",
+            "operator": ">",
+            "target": "ma20"
+          },
+          {
+            "name": "close_gt_ma200",
+            "field": "close",
+            "operator": ">",
+            "target": "ma200"
+          }
+        ]
+      },
+      "backtest": {
+        "holding_period_days": 5,
+        "execution_model_version": "next_open_to_close"
+      }
+    },
+    {
+      "strategy_id": "rsi_pullback",
+      "name": "RSI 回檔",
+      "version": "1.0.0",
+      "description": "close > ma20 and rsi14 < 35",
+      "is_active": false,
+      "params_json": {
+        "min_history_days": 25,
+        "conditions": [
+          {
+            "name": "close_gt_ma20",
+            "field": "close",
+            "operator": ">",
+            "target": "ma20"
+          },
+          {
+            "name": "rsi14_lt_35",
+            "field": "rsi14",
+            "operator": "<",
+            "value": 35
+          }
+        ]
+      },
+      "backtest": {
+        "holding_period_days": 5,
+        "execution_model_version": "next_open_to_close"
+      }
+    },
+    {
+      "strategy_id": "volume_breakout",
+      "name": "Volume 突破",
+      "version": "1.0.0",
+      "description": "close > bb_upper_20 and volume > 2 * volume_ma5",
+      "is_active": false,
+      "params_json": {
+        "min_history_days": 25,
+        "conditions": [
+          {
+            "name": "close_gt_bb_upper_20",
+            "field": "close",
+            "operator": ">",
+            "target": "bb_upper_20"
+          },
+          {
+            "name": "volume_gt_2x_volume_ma5",
+            "field": "volume",
+            "operator": ">",
+            "target": "volume_ma5",
+            "multiplier": 2.0
+          }
+        ]
+      },
+      "backtest": {
+        "holding_period_days": 3,
+        "execution_model_version": "next_open_to_close"
+      }
+    },
+    {
+      "strategy_id": "pure_momentum_breakout",
+      "name": "純價漲高量趨創",
+      "version": "1.0.0",
+      "description": "非ETF/特別股、股價<=1000、漲幅>=3%且收紅K、收盤在最高點75%內、成交量>=1.5倍5日均量、站上5MA & 20MA、突破或接近20日最高點",
+      "is_active": false,
+      "params_json": {
+        "min_history_days": 25,
+        "conditions": [
+          {
+            "name": "is_pure_stock",
+            "field": "is_pure_stock",
+            "operator": "==",
+            "value": 1.0
+          },
+          {
+            "name": "price_limit",
+            "field": "close",
+            "operator": "<=",
+            "value": 1000
+          },
+          {
+            "name": "rise_pct",
+            "field": "change_pct",
+            "operator": ">=",
+            "value": 3.0
+          },
+          {
+            "name": "red_candle",
+            "field": "is_red_candle",
+            "operator": "==",
+            "value": 1.0
+          },
+          {
+            "name": "high_pos",
+            "field": "day_range_pos",
+            "operator": ">=",
+            "value": 0.75
+          },
+          {
+            "name": "volume_surge",
+            "field": "volume",
+            "operator": ">=",
+            "target": "volume_ma5",
+            "multiplier": 1.5
+          },
+          {
+            "name": "above_ma5",
+            "field": "close",
+            "operator": ">",
+            "target": "ma5"
+          },
+          {
+            "name": "above_ma20",
+            "field": "close",
+            "operator": ">",
+            "target": "ma20"
+          },
+          {
+            "name": "near_high_20",
+            "field": "close",
+            "operator": ">=",
+            "target": "high_20",
+            "multiplier": 0.98
+          }
+        ]
+      },
+      "backtest": {
+        "holding_period_days": 1,
+        "execution_model_version": "next_open_to_close"
+      }
+    },
+    {
+      "strategy_id": "bullish_47d_breakout",
+      "name": "47天看多型態",
+      "version": "1.0.0",
+      "description": "收盤價大於等於前一根(47天)k線的開盤價，且股價站上前一根(47天)k線的高點，並符合均線多頭排列(收盤 > 5MA > 20MA, 收盤 > 200MA)",
+      "is_active": false,
+      "params_json": {
+        "min_history_days": 200,
+        "conditions": [
+          {
+            "name": "close_gte_open_47d_prev",
+            "field": "close",
+            "operator": ">=",
+            "target": "open_47d_prev"
+          },
+          {
+            "name": "close_gt_high_47d_prev",
+            "field": "close",
+            "operator": ">",
+            "target": "high_47d_prev"
+          },
+          {
+            "name": "close_gt_ma5",
+            "field": "close",
+            "operator": ">",
+            "target": "ma5"
+          },
+          {
+            "name": "ma5_gt_ma20",
+            "field": "ma5",
+            "operator": ">",
+            "target": "ma20"
+          },
+          {
+            "name": "close_gt_ma200",
+            "field": "close",
+            "operator": ">",
+            "target": "ma200"
+          }
+        ]
+      },
+      "backtest": {
+        "holding_period_days": 5,
+        "execution_model_version": "next_open_to_close"
+      }
+    },
+    {
+      "strategy_id": "bullish_47d_washout",
+      "name": "47天型態-洗盤反轉",
+      "version": "1.0.0",
+      "description": "曾突破47天高點後，跌破20MA洗盤，今日再次站回20MA。大格局仍維持在47天高點之上。",
+      "is_active": false,
+      "params_json": {
+        "min_history_days": 200,
+        "conditions": [
+          {
+            "name": "is_pure_stock",
+            "field": "is_pure_stock",
+            "operator": "==",
+            "value": 1.0
+          },
+          {
+            "name": "has_breakout",
+            "field": "has_breakout_47d",
+            "operator": "==",
+            "value": 1.0
+          },
+          {
+            "name": "has_washout",
+            "field": "has_washout_47d",
+            "operator": "==",
+            "value": 1.0
+          },
+          {
+            "name": "recover_ma20",
+            "field": "ma20_cross_up",
+            "operator": "==",
+            "value": 1.0
+          },
+          {
+            "name": "still_above_47d_high",
+            "field": "close",
+            "operator": ">=",
+            "target": "high_47d_prev"
+          }
+        ]
+      },
+      "backtest": {
+        "holding_period_days": 5,
+        "execution_model_version": "next_open_to_close"
+      }
+    },
+    {
+      "strategy_id": "bullish_47d_ma20_rebound",
+      "name": "47天型態-20MA轉強",
+      "version": "2.4.0",
+      "description": "1. 47D週期：當下或前一根K棒最高點碰及前一根47D K線高點、2. 3D週期：當前收盤大於前一根K線、3. 1D週期：曾跌破20MA，今日站回20MA、4. 1D收盤在200MA之上、5. 3D週期收盤（前3日收盤）也在200MA之上",
+      "is_active": true,
+      "params_json": {
+        "min_history_days": 200,
+        "conditions": [
+          {
+            "name": "is_pure_stock",
+            "field": "is_pure_stock",
+            "operator": "==",
+            "value": 1.0
+          },
+          {
+            "name": "high_touch_47d",
+            "field": "high_max_2d_raw",
+            "operator": ">=",
+            "target": "high_47d_prev_raw"
+          },
+          {
+            "name": "3d_close_gt_prev",
+            "field": "raw_close",
+            "operator": ">",
+            "target": "raw_close_prev_3"
+          },
+          {
+            "name": "was_below_ma20_20d",
+            "field": "has_closed_below_ma20_raw_20d",
+            "operator": "==",
+            "value": 1.0
+          },
+          {
+            "name": "recover_ma20",
+            "field": "ma20_raw_cross_up",
+            "operator": "==",
+            "value": 1.0
+          },
+          {
+            "name": "1d_close_gt_ma200",
+            "field": "raw_close",
+            "operator": ">",
+            "target": "ma200_raw"
+          },
+          {
+            "name": "3d_close_gt_ma200",
+            "field": "raw_close_prev_3",
+            "operator": ">",
+            "target": "ma200_raw_3d_prev"
+          }
+        ]
+      },
+      "backtest": {
+        "holding_period_days": 5,
+        "execution_model_version": "next_open_to_close",
+        "minute_bar_execution": {
+          "take_profit_pct": 0.03,
+          "limit_up_pct": 0.10,
+          "entry_ma_bars": 270,
+          "max_holding_days": 60
+        }
+      }
+    },
+    {
+      "strategy_id": "bullish_47d_sequential_rebound",
+      "name": "47天連續轉強型態",
+      "version": "1.0.0",
+      "description": "連三漲轉強：最高價觸及前一根47天高點，且過去20天曾跌破20MA洗盤。自反轉點(底)起算，連續三根收盤價漸高，且今日精準落在第三根。",
+      "is_active": false,
+      "params_json": {
+        "min_history_days": 200,
+        "conditions": [
+          {
+            "name": "is_pure_stock",
+            "field": "is_pure_stock",
+            "operator": "==",
+            "value": 1.0
+          },
+          {
+            "name": "high_touch_47d",
+            "field": "high",
+            "operator": ">=",
+            "target": "high_47d_prev"
+          },
+          {
+            "name": "was_below_ma20_20d",
+            "field": "has_closed_below_ma20_20d",
+            "operator": "==",
+            "value": 1.0
+          },
+          {
+            "name": "today_cross_up_ma20",
+            "field": "ma20_cross_up",
+            "operator": "==",
+            "value": 1.0
+          },
+          {
+            "name": "close_gte_prev_1",
+            "field": "close",
+            "operator": ">=",
+            "target": "close_prev_1"
+          },
+          {
+            "name": "close_prev_1_gt_prev_2",
+            "field": "close_prev_1",
+            "operator": ">",
+            "target": "close_prev_2"
+          },
+          {
+            "name": "close_prev_2_lte_prev_3",
+            "field": "close_prev_2",
+            "operator": "<=",
+            "target": "close_prev_3"
+          }
+        ]
+      },
+      "backtest": {
+        "holding_period_days": 5,
+        "execution_model_version": "next_open_to_close"
+      }
+    },
+    {
+      "strategy_id": "bullish_mtf_rebound",
+      "name": "3D/1D多週期轉強",
+      "version": "2.2.0",
+      "description": "3D週期：20MA > 60MA > 120MA > 200MA (多頭排列)。1D週期：曾回檔跌破10MA，今日低點未再破昨日低點(止跌)，且連續兩日收盤價步步高升。",
+      "is_active": false,
+      "params_json": {
+        "min_history_days": 600,
+        "conditions": [
+          {
+            "name": "is_pure_stock",
+            "field": "is_pure_stock",
+            "operator": "==",
+            "value": 1.0
+          },
+          {
+            "name": "3d_ma20_gt_ma60",
+            "field": "ma60",
+            "operator": ">",
+            "target": "ma180"
+          },
+          {
+            "name": "3d_ma60_gt_ma120",
+            "field": "ma180",
+            "operator": ">",
+            "target": "ma360"
+          },
+          {
+            "name": "3d_ma120_gt_ma200",
+            "field": "ma360",
+            "operator": ">",
+            "target": "ma600"
+          },
+          {
+            "name": "1d_was_below_ma10",
+            "field": "has_closed_below_ma10_20d",
+            "operator": "==",
+            "value": 1.0
+          },
+          {
+            "name": "1d_no_new_low",
+            "field": "adj_low",
+            "operator": ">=",
+            "target": "low_prev_1"
+          },
+          {
+            "name": "1d_close_rising_today",
+            "field": "adj_close",
+            "operator": ">",
+            "target": "close_prev_1"
+          },
+          {
+            "name": "1d_close_rising_yesterday",
+            "field": "close_prev_1",
+            "operator": ">",
+            "target": "close_prev_2"
+          }
+        ]
+      },
+      "backtest": {
+        "holding_period_days": 5,
+        "execution_model_version": "next_open_to_close"
+      }
+    }
+  ],
+  "short_strategies": []
+}

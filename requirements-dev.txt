@@ -1,0 +1,18 @@
+# 生產依賴
+-r requirements.txt
+
+# 測試
+pytest>=8.0
+pytest-cov>=5.0
+
+# 程式碼格式化
+black>=24.0
+isort>=5.13
+
+# Linting / 靜態分析
+ruff>=0.4
+mypy>=1.10
+types-requests>=2.31
+
+# Pre-commit hooks
+pre-commit>=3.7

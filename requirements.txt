@@ -1,0 +1,9 @@
+pandas
+requests
+pydantic-settings
+psycopg2-binary
+SQLAlchemy
+alembic
+pytest
+apscheduler
+yfinance

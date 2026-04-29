@@ -1,0 +1,49 @@
+name: CI
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+jobs:
+  test:
+    name: 測試與靜態分析
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        python-version: ["3.9", "3.11"]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 設定 Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+
+      - name: 安裝開發依賴
+        run: pip install -r requirements-dev.txt
+
+      - name: Ruff linting
+        run: ruff check sentinel tests
+
+      - name: Black 格式檢查
+        run: black --check sentinel tests
+
+      - name: 執行測試（含覆蓋率）
+        run: |
+          pytest --cov=sentinel --cov-report=xml --cov-report=term-missing
+        env:
+          TS_DATABASE_URL: sqlite:///data/db/ci_test.db
+          TS_DATA_DIR: data
+          TS_OUTPUT_DIR: outputs
+
+      - name: 上傳覆蓋率報告
+        if: matrix.python-version == '3.11'
+        uses: codecov/codecov-action@v4
+        with:
+          files: coverage.xml
+          fail_ci_if_error: false

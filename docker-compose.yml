@@ -1,0 +1,40 @@
+services:
+  # ── PostgreSQL + TimescaleDB（正式環境對應資料庫）────────────────────────
+  db:
+    image: timescale/timescaledb:latest-pg16
+    environment:
+      POSTGRES_USER: trading
+      POSTGRES_PASSWORD: trading
+      POSTGRES_DB: sentinel
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U trading -d sentinel"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ── 應用程式（CLI / 排程器）──────────────────────────────────────────────
+  app:
+    build: .
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      TS_DATABASE_URL: postgresql+psycopg2://trading:trading@db:5432/sentinel
+      TS_DATA_DIR: /app/data
+      TS_OUTPUT_DIR: /app/outputs
+      TS_LOG_LEVEL: INFO
+    env_file:
+      - .env
+    volumes:
+      - ./data:/app/data
+      - ./outputs:/app/outputs
+      - ./config:/app/config:ro
+    # 容器預設為 idle，讓開發者手動執行指令
+    command: ["inspect", "status"]
+
+volumes:
+  pgdata:

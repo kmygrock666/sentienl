@@ -1,0 +1,261 @@
+{
+  "_comment": "個股觀察訊號 — 針對特定股票判斷當日是否觸發進場/出場/警示條件，與選股策略（strategies.json）分開管理。",
+  "signals": [
+    {
+      "signal_id": "shooting_star_reversal_buy",
+      "name": "倒T線反轉做多",
+      "version": "1.0.0",
+      "direction": "long",
+      "source_rule": "規則 2/6",
+      "description": "多頭走勢，股價在MA5之上出量收倒T線（掉人線），隔日低點不破昨低且收盤站上昨日實體中點，表示強力買盤進駐，可做多。",
+      "requires_intraday": false,
+      "is_active": true,
+      "params": {
+        "min_history_days": 25,
+        "conditions": [
+          {
+            "name": "昨日收倒T線",
+            "field": "is_shooting_star_prev_1",
+            "operator": "==",
+            "value": 1.0
+          },
+          {
+            "name": "昨日股價在MA5之上",
+            "field": "close_prev_1",
+            "operator": ">",
+            "target": "ma5"
+          },
+          {
+            "name": "昨日量能大於均量",
+            "field": "volume_prev_1",
+            "operator": ">",
+            "target": "volume_ma5"
+          },
+          {
+            "name": "今日低點不破昨日低點",
+            "field": "adj_low",
+            "operator": ">=",
+            "target": "low_prev_1"
+          },
+          {
+            "name": "今日收盤站上昨日實體中點",
+            "field": "adj_close",
+            "operator": ">",
+            "target": "prev_candle_body_mid"
+          }
+        ]
+      }
+    },
+    {
+      "signal_id": "fairy_guide_black_bearish",
+      "name": "仙人指路黑K警示",
+      "version": "1.0.0",
+      "direction": "warning",
+      "source_rule": "規則 7",
+      "description": "多頭走勢，量能比昨天大，收仙人指路黑K（帶長上影線的黑K棒），隔天通常大跌，應出場或減碼。",
+      "requires_intraday": false,
+      "is_active": true,
+      "params": {
+        "min_history_days": 25,
+        "conditions": [
+          {
+            "name": "收仙人指路黑K",
+            "field": "is_fairy_guide_black",
+            "operator": "==",
+            "value": 1.0
+          },
+          {
+            "name": "量能大於昨日",
+            "field": "volume",
+            "operator": ">",
+            "target": "volume_prev_1"
+          },
+          {
+            "name": "股價在MA5之上（多頭背景）",
+            "field": "close",
+            "operator": ">",
+            "target": "ma5"
+          }
+        ]
+      }
+    },
+    {
+      "signal_id": "volume_exhaustion_exit",
+      "name": "爆大量後量縮新高黑K",
+      "version": "1.0.0",
+      "direction": "warning",
+      "source_rule": "規則 9",
+      "description": "爆大量創新高，隔天量縮再創新高但收黑K（高開走低），為多頭力竭訊號，應減碼或獲利了結。",
+      "requires_intraday": false,
+      "is_active": true,
+      "params": {
+        "min_history_days": 25,
+        "conditions": [
+          {
+            "name": "昨日爆大量",
+            "field": "volume_prev_1",
+            "operator": ">=",
+            "target": "volume_ma5",
+            "multiplier": 1.5
+          },
+          {
+            "name": "昨日接近20日高點",
+            "field": "high_prev_1",
+            "operator": ">=",
+            "target": "high_20_prev_1",
+            "multiplier": 0.98
+          },
+          {
+            "name": "今日再創新高",
+            "field": "high",
+            "operator": ">",
+            "target": "high_prev_1"
+          },
+          {
+            "name": "今日量縮",
+            "field": "volume",
+            "operator": "<",
+            "target": "volume_prev_1"
+          },
+          {
+            "name": "今日收黑K",
+            "field": "is_red_candle",
+            "operator": "==",
+            "value": 0.0
+          }
+        ]
+      }
+    },
+    {
+      "signal_id": "ma5_break_shrink_exit",
+      "name": "多頭跌破五日線量縮出場",
+      "version": "1.0.0",
+      "direction": "warning",
+      "source_rule": "規則 12",
+      "description": "多頭走勢中跌破五日均線且量能萎縮，中小型股（尤其是OTC）應停損或停利出售。跌破五日線後隔天常出現大黑K灌破20MA。",
+      "requires_intraday": false,
+      "is_active": true,
+      "params": {
+        "min_history_days": 25,
+        "conditions": [
+          {
+            "name": "收盤跌破MA5",
+            "field": "close",
+            "operator": "<",
+            "target": "ma5"
+          },
+          {
+            "name": "量能低於五日均量",
+            "field": "volume",
+            "operator": "<",
+            "target": "volume_ma5"
+          }
+        ]
+      }
+    },
+    {
+      "signal_id": "profit_management",
+      "name": "獲利加減碼規則",
+      "version": "1.0.0",
+      "direction": "position_mgmt",
+      "source_rule": "規則 1",
+      "description": "獲利達50%且股價依然強勢，可加碼。若獲利回吐5%（如從50%降至45%），應減碼；降至40%時全部出清。此為部位管理規則，系統不自動偵測，須人工執行。",
+      "requires_intraday": false,
+      "is_active": false,
+      "params": {
+        "note": "部位管理規則，無法用指標條件判斷，需人工結合持倉成本計算。",
+        "conditions": []
+      }
+    },
+    {
+      "signal_id": "intraday_macd_divergence_exit",
+      "name": "1H MACD遞減+爆大量新高出清",
+      "version": "1.0.0",
+      "direction": "warning",
+      "source_rule": "規則 3",
+      "description": "多頭走勢，一小時K MACD柱遞減，且出現過爆大量創新高、後續量能不足情況下再創新高，應全部獲利了結出清。",
+      "requires_intraday": true,
+      "intraday_interval": "1h",
+      "is_active": false,
+      "params": {
+        "note": "需1小時K線資料，日線系統無法偵測。",
+        "conditions": []
+      }
+    },
+    {
+      "signal_id": "market_breadth_warning",
+      "name": "大漲但廣度轉弱",
+      "version": "1.0.0",
+      "direction": "warning",
+      "source_rule": "規則 4",
+      "description": "當大盤大漲但上漲家數 < 下跌家數，隔天容易大跌。",
+      "requires_intraday": false,
+      "requires_market_breadth": true,
+      "is_active": false,
+      "params": {
+        "note": "需大盤廣度資料（上漲/下跌家數），目前系統不支援。",
+        "conditions": []
+      }
+    },
+    {
+      "signal_id": "limit_lock_warning",
+      "name": "多頭大漲後關緊閉預警",
+      "version": "1.0.0",
+      "direction": "warning",
+      "source_rule": "規則 5",
+      "description": "多頭走勢大漲後，若出現被關緊閉（漲停後接著跌停鎖死）通常後續崩盤，應在關緊閉發生前賣出。",
+      "requires_intraday": true,
+      "intraday_interval": "tick",
+      "is_active": false,
+      "params": {
+        "note": "需盤中Tick資料偵測漲停/跌停狀態，日線系統無法偵測。",
+        "conditions": []
+      }
+    },
+    {
+      "signal_id": "gap_fill_pullback",
+      "name": "多頭回補缺口先跌破缺口高點",
+      "version": "1.0.0",
+      "direction": "observation",
+      "source_rule": "規則 8",
+      "description": "多頭回補缺口，通常會先跌破缺口高點才開始拉升。觀察到此型態時不急於追買，等跌破缺口高點後確認再進場。",
+      "requires_intraday": false,
+      "requires_gap_detection": true,
+      "is_active": false,
+      "params": {
+        "note": "需缺口偵測邏輯（比對今日開盤與昨日最高），待日後實作。",
+        "conditions": []
+      }
+    },
+    {
+      "signal_id": "fivemin_top_fail_exit",
+      "name": "五分K底底高頂部失守出場",
+      "version": "1.0.0",
+      "direction": "warning",
+      "source_rule": "規則 10",
+      "description": "五分K低點不破、高點也突破不了，20MA持續往下墜，出現底底高但高點不過高，準備下殺，應出場。",
+      "requires_intraday": true,
+      "intraday_interval": "5m",
+      "is_active": false,
+      "params": {
+        "note": "需5分鐘K線資料，日線系統無法偵測。",
+        "conditions": []
+      }
+    },
+    {
+      "signal_id": "fivemin_bottom_rise_buy",
+      "name": "五分K底底高站上20MA做多",
+      "version": "1.0.0",
+      "direction": "long",
+      "source_rule": "規則 11",
+      "description": "五分K低點不破，股價站上20MA，20MA持續往上走，出現底底高且股價維持在20MA之上，準備拉升，可做多。",
+      "requires_intraday": true,
+      "intraday_interval": "5m",
+      "is_active": false,
+      "params": {
+        "note": "需5分鐘K線資料，日線系統無法偵測。",
+        "conditions": []
+      }
+    }
+  ]
+}
