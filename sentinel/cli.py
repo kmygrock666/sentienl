@@ -442,6 +442,13 @@ def build_parser() -> argparse.ArgumentParser:
     check_parser.add_argument("--dataset-path", type=Path, help="Override the canonical daily price dataset path.")
     check_parser.add_argument("--signal-path", type=Path, help="Signal config path. Defaults to config/signals.json.")
 
+    backfill_agg_parser = subparsers.add_parser(
+        "backfill-aggregated-bars",
+        help="One-time backfill of daily_prices_3d and daily_prices_47d from existing price data",
+    )
+    backfill_agg_parser.add_argument("--database-url", help="SQLAlchemy database URL. Defaults to TS_DATABASE_URL.")
+    backfill_agg_parser.add_argument("--dataset-path", type=Path, help="Override the canonical daily price dataset path.")
+
     yahoo_parser = subparsers.add_parser(
         "backfill-yahoo",
         help="Backfill missing historical prices from Yahoo Finance",
@@ -1396,6 +1403,28 @@ def main(argv: Optional[List[str]] = None) -> int:
         args.strategy_path = None
         # 繼續執行後面的 run 邏輯
         args.command = "run"
+
+    if args.command == "backfill-aggregated-bars":
+        database_url = args.database_url or settings.database_url
+        if not database_url:
+            parser.error("--database-url is required or set TS_DATABASE_URL in the environment")
+
+        dataset_path = args.dataset_path or settings.price_dataset_path
+        engine = create_db_engine(database_url)
+        create_schema(engine)
+
+        from sentinel.persistence import backfill_aggregated_bars
+        from sqlalchemy.orm import Session
+
+        prices = load_price_dataset(dataset_path)
+        logger.info("backfill_aggregated_bars_started", extra={"rows": len(prices)})
+        with Session(engine) as session:
+            counts = backfill_aggregated_bars(session, prices)
+            session.commit()
+        logger.info("backfill_aggregated_bars_done", extra=counts)
+        print(f"3D bars: {counts.get('daily_prices_3d', 0)} rows")
+        print(f"47D bars: {counts.get('daily_prices_47d', 0)} rows")
+        return 0
 
     if args.command != "run":
         parser.error(f"Unsupported command: {args.command}")

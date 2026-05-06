@@ -1,6 +1,8 @@
 from __future__ import annotations
 
-from typing import Dict
+import os
+from concurrent.futures import ProcessPoolExecutor
+from typing import Dict, List
 
 import numpy as np
 import pandas as pd
@@ -128,6 +130,12 @@ INDICATOR_SPECS: Dict[str, Dict[str, object]] = {
 }
 
 
+def _compute_chunk(groups: List[pd.DataFrame]) -> List[pd.DataFrame]:
+    """Worker function: process a chunk of stock groups sequentially.
+    Must be module-level for ProcessPoolExecutor pickling."""
+    return [_compute_group_indicators(g) for g in groups]
+
+
 def compute_indicator_frame(prices: pd.DataFrame) -> pd.DataFrame:
     if prices.empty:
         frame = prices.copy()
@@ -139,13 +147,70 @@ def compute_indicator_frame(prices: pd.DataFrame) -> pd.DataFrame:
     frame["trading_date"] = pd.to_datetime(frame["trading_date"])
     frame = frame.sort_values(["market", "symbol", "trading_date"]).reset_index(drop=True)
 
-    enriched_groups = []
-    for _, group in frame.groupby(["market", "symbol"], sort=False):
-        enriched_groups.append(_compute_group_indicators(group.copy()))
+    groups = [g.copy() for _, g in frame.groupby(["market", "symbol"], sort=False)]
 
+    n_workers = min(os.cpu_count() or 1, 8)
+    chunk_size = max(1, len(groups) // n_workers)
+    chunks = [groups[i : i + chunk_size] for i in range(0, len(groups), chunk_size)]
+
+    with ProcessPoolExecutor(max_workers=n_workers) as executor:
+        chunk_results = list(executor.map(_compute_chunk, chunks))
+
+    enriched_groups = [g for chunk in chunk_results for g in chunk]
     enriched = pd.concat(enriched_groups, ignore_index=True)
     enriched["trading_date"] = enriched["trading_date"].dt.date
     return enriched
+
+
+INDICATOR_SPECS_3D: Dict[str, str] = {
+    "ma20_3d": "MA of last 20 3-day bars (≈ 60 trading days)",
+    "ma60_3d": "MA of last 60 3-day bars (≈ 180 trading days)",
+    "ma120_3d": "MA of last 120 3-day bars (≈ 360 trading days)",
+}
+
+
+def compute_3d_indicator_frame(prices: pd.DataFrame) -> pd.DataFrame:
+    """Compute MA indicators on 3-day aggregated bars.
+
+    Returns one row per (market, symbol) with the latest available 3D MA values.
+    These columns should be joined onto the daily indicator frame by (market, symbol).
+    """
+    if prices.empty:
+        return pd.DataFrame(columns=["market", "symbol"] + list(INDICATOR_SPECS_3D))
+
+    prices = prices.copy()
+    prices["trading_date"] = pd.to_datetime(prices["trading_date"]).dt.date
+
+    results: List[Dict] = []
+    for (market, symbol), group in prices.groupby(["market", "symbol"]):
+        group = group.sort_values("trading_date").reset_index(drop=True)
+
+        # Assign 3-day period index by row position (each trading day counts once)
+        group["period_idx"] = group.index // 3
+
+        # Only keep complete 3-day blocks
+        period_counts = group.groupby("period_idx").size()
+        complete = period_counts[period_counts == 3].index
+        if len(complete) == 0:
+            continue
+
+        agg = (
+            group[group["period_idx"].isin(complete)]
+            .groupby("period_idx")
+            .agg(close=("close", "last"))
+            .reset_index()
+        )
+        close_3d = pd.to_numeric(agg["close"], errors="coerce")
+
+        row: Dict = {"market": market, "symbol": symbol}
+        for window, col in [(20, "ma20_3d"), (60, "ma60_3d"), (120, "ma120_3d")]:
+            series = close_3d.rolling(window=window, min_periods=window).mean()
+            row[col] = float(series.iloc[-1]) if pd.notna(series.iloc[-1]) else None
+        results.append(row)
+
+    if not results:
+        return pd.DataFrame(columns=["market", "symbol"] + list(INDICATOR_SPECS_3D))
+    return pd.DataFrame(results)
 
 
 def _compute_group_indicators(group: pd.DataFrame) -> pd.DataFrame:

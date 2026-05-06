@@ -81,7 +81,7 @@
 ## 3. 核心日線掃描指令
 
 ### `run` (Daily Pipeline)
-- **指令範例**：`./.venv/bin/python -m sentinel run --market TWSE --market TPEX --start-date 2026-04-29 --end-date 2026-04-29 --trading-date 2026-04-29`
+- **指令範例**：`./.venv/bin/python -m sentinel run --market TWSE --market TPEX --start-date 2026-05-04 --end-date 2026-05-04 --trading-date 2026-05-04`
 - **功能**：一鍵完成「抓取股價 -> 運算技術指標 -> 策略篩選與輸出」。
 - **執行邏輯**：
   1. 依據時間區間批次抓取每日 `daily_prices` 股價。

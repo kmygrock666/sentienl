@@ -10,7 +10,7 @@ import pandas as pd
 from sentinel.calendar import filter_trading_dates
 from sentinel.config import Settings
 from sentinel.indicator_cache import load_indicator_cache, save_indicator_cache
-from sentinel.indicators import compute_indicator_frame
+from sentinel.indicators import compute_3d_indicator_frame, compute_indicator_frame
 from sentinel.logging_utils import get_logger
 from sentinel.providers import SOURCE_MODE_AUTO, build_price_provider, normalize_market_name
 from sentinel.strategies import DEFAULT_STRATEGY_DEFINITIONS, scan_strategies
@@ -120,7 +120,14 @@ def compute_indicators(
         cached = load_indicator_cache(cache_dir, trading_date, markets, calc_version)
         if cached is not None:
             return cached
+
     result = compute_indicator_frame(prices)
+
+    # Join 3D timeframe MAs (one value per symbol, propagated to all daily rows)
+    indicators_3d = compute_3d_indicator_frame(prices)
+    if not indicators_3d.empty:
+        result = result.merge(indicators_3d, on=["market", "symbol"], how="left")
+
     if use_cache:
         save_indicator_cache(result, cache_dir, trading_date, markets, calc_version)
     return result

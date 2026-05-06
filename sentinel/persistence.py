@@ -13,6 +13,8 @@ from sqlalchemy.orm import Session
 
 from sentinel.models import (
     DailyPrice,
+    DailyPrice3D,
+    DailyPrice47D,
     DataQuarantine,
     JobRun,
     ScanResult,
@@ -109,6 +111,9 @@ def persist_pipeline_results(
             trading_date=trading_date,
             data_version=data_version,
         )
+        # Incrementally update aggregated bars for each market in this batch
+        for market in prices["market"].unique():
+            update_aggregated_bars(session, str(market), trading_date, prices)
         session.commit()
         return persisted_counts
 
@@ -444,6 +449,8 @@ def table_to_model(table_name: str):
     return {
         "stocks": Stock,
         "daily_prices": DailyPrice,
+        "daily_prices_3d": DailyPrice3D,
+        "daily_prices_47d": DailyPrice47D,
         "technical_indicators": TechnicalIndicator,
         "scan_results": ScanResult,
         "job_runs": JobRun,
@@ -451,6 +458,125 @@ def table_to_model(table_name: str):
         "trading_calendar": TradingCalendar,
         "data_quarantine": DataQuarantine,
     }[table_name]
+
+
+# ---------------------------------------------------------------------------
+# Aggregated bar helpers
+# ---------------------------------------------------------------------------
+
+def _get_trading_day_sequence(session: Session, market: str) -> pd.DataFrame:
+    """Return DataFrame with columns [calendar_date, seq_idx] for all trading days of market."""
+    from sqlalchemy import select
+    stmt = (
+        select(TradingCalendar.calendar_date)
+        .where(TradingCalendar.exchange == market, TradingCalendar.is_trading_day == True)  # noqa: E712
+        .order_by(TradingCalendar.calendar_date)
+    )
+    rows = session.execute(stmt).fetchall()
+    dates = [r[0] for r in rows]
+    return pd.DataFrame({"calendar_date": pd.to_datetime(dates).date, "seq_idx": range(len(dates))})
+
+
+def _aggregate_ohlcv(group: pd.DataFrame) -> Dict[str, Any]:
+    group = group.sort_values("trading_date")
+    return {
+        "open": float(group["open"].iloc[0]),
+        "high": float(group["high"].max()),
+        "low": float(group["low"].min()),
+        "close": float(group["close"].iloc[-1]),
+        "volume": int(group["volume"].sum()),
+        "adjusted_close": float(group["close"].iloc[-1]),
+        "period_end_date": group["trading_date"].iloc[-1],
+        "updated_at": datetime.utcnow(),
+    }
+
+
+def backfill_aggregated_bars(session: Session, prices: pd.DataFrame) -> Dict[str, int]:
+    """Backfill daily_prices_3d and daily_prices_47d from a full prices DataFrame.
+
+    prices must have columns: market, symbol, trading_date, open, high, low, close, volume.
+    Returns counts of rows upserted for each table.
+    """
+    if prices.empty:
+        return {"daily_prices_3d": 0, "daily_prices_47d": 0}
+
+    prices = prices.copy()
+    prices["trading_date"] = pd.to_datetime(prices["trading_date"]).dt.date
+
+    counts: Dict[str, int] = {}
+    for n, table, model_table in [
+        (3, DailyPrice3D.__table__, "daily_prices_3d"),
+        (47, DailyPrice47D.__table__, "daily_prices_47d"),
+    ]:
+        rows: List[Dict[str, Any]] = []
+        for market, market_prices in prices.groupby("market"):
+            seq = _get_trading_day_sequence(session, str(market))
+            merged = market_prices.merge(seq, left_on="trading_date", right_on="calendar_date", how="inner")
+            merged["period_idx"] = merged["seq_idx"] // n
+
+            for (symbol, period_idx), grp in merged.groupby(["symbol", "period_idx"]):
+                if len(grp) < n:
+                    continue  # incomplete block — skip
+                agg = _aggregate_ohlcv(grp)
+                rows.append({
+                    "market": str(market),
+                    "symbol": str(symbol),
+                    **agg,
+                })
+
+        _upsert_rows(
+            session=session,
+            table=table,
+            rows=rows,
+            conflict_columns=["market", "symbol", "period_end_date"],
+            update_columns=["open", "high", "low", "close", "volume", "adjusted_close", "updated_at"],
+        )
+        counts[model_table] = len(rows)
+
+    return counts
+
+
+def update_aggregated_bars(session: Session, market: str, trading_date, prices: pd.DataFrame) -> None:
+    """Incrementally append a completed 3D or 47D bar when the trading_date closes a block.
+
+    Called after upsert_daily_prices for each new trading day.
+    """
+    trading_date = _to_date(trading_date)
+    seq = _get_trading_day_sequence(session, market)
+    today_row = seq[seq["calendar_date"] == trading_date]
+    if today_row.empty:
+        return
+
+    today_idx = int(today_row["seq_idx"].iloc[0])
+
+    for n, table in [(3, DailyPrice3D.__table__), (47, DailyPrice47D.__table__)]:
+        if (today_idx + 1) % n != 0:
+            continue  # this trading_date does not close an N-day block
+
+        # Find the first date of this block
+        block_start_idx = today_idx - (n - 1)
+        block_dates = set(seq[seq["seq_idx"].between(block_start_idx, today_idx)]["calendar_date"].tolist())
+
+        symbol_prices = prices[
+            (prices["market"] == market) & (prices["trading_date"].apply(_to_date).isin(block_dates))
+        ].copy()
+        if symbol_prices.empty:
+            continue
+
+        rows: List[Dict[str, Any]] = []
+        for symbol, grp in symbol_prices.groupby("symbol"):
+            if len(grp) < n:
+                continue
+            agg = _aggregate_ohlcv(grp)
+            rows.append({"market": market, "symbol": str(symbol), **agg})
+
+        _upsert_rows(
+            session=session,
+            table=table,
+            rows=rows,
+            conflict_columns=["market", "symbol", "period_end_date"],
+            update_columns=["open", "high", "low", "close", "volume", "adjusted_close", "updated_at"],
+        )
 
 
 def _hash_indicator_params(params: Dict[str, Any]) -> str:

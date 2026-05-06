@@ -380,11 +380,11 @@
     {
       "strategy_id": "bullish_mtf_rebound",
       "name": "3D/1D多週期轉強",
-      "version": "2.2.0",
-      "description": "3D週期：20MA > 60MA > 120MA > 200MA (多頭排列)。1D週期：曾回檔跌破10MA，今日低點未再破昨日低點(止跌)，且連續兩日收盤價步步高升。",
-      "is_active": false,
+      "version": "3.0.0",
+      "description": "3D週期K線多頭排列：ma20_3d > ma60_3d > ma120_3d（各為3日K棒上的均線，語意正確）。1D週期：曾回檔跌破10MA，今日低點未再破昨日低點(止跌)，且連續兩日收盤價步步高升。",
+      "is_active": true,
       "params_json": {
-        "min_history_days": 600,
+        "min_history_days": 360,
         "conditions": [
           {
             "name": "is_pure_stock",
@@ -394,21 +394,15 @@
           },
           {
             "name": "3d_ma20_gt_ma60",
-            "field": "ma60",
+            "field": "ma20_3d",
             "operator": ">",
-            "target": "ma180"
+            "target": "ma60_3d"
           },
           {
             "name": "3d_ma60_gt_ma120",
-            "field": "ma180",
+            "field": "ma60_3d",
             "operator": ">",
-            "target": "ma360"
-          },
-          {
-            "name": "3d_ma120_gt_ma200",
-            "field": "ma360",
-            "operator": ">",
-            "target": "ma600"
+            "target": "ma120_3d"
           },
           {
             "name": "1d_was_below_ma10",

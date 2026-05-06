@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import date, datetime
 from typing import Any, Dict, Optional
 
-from sqlalchemy import JSON, Boolean, Date, DateTime, Float, Integer, Numeric, PrimaryKeyConstraint, String, Text
+from sqlalchemy import BigInteger, JSON, Boolean, Date, DateTime, Integer, Numeric, PrimaryKeyConstraint, String, Text
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 
@@ -39,6 +39,40 @@ class DailyPrice(Base):
     turnover: Mapped[Optional[int]] = mapped_column(Numeric(20, 0))
     adjusted_close: Mapped[Optional[float]] = mapped_column(Numeric(18, 4))
     data_version: Mapped[Optional[str]] = mapped_column(String(64))
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=datetime.utcnow)
+
+
+class DailyPrice3D(Base):
+    """3-day aggregated OHLCV bars. period_end_date is the last trading day in the 3-day block."""
+    __tablename__ = "daily_prices_3d"
+    __table_args__ = (PrimaryKeyConstraint("market", "symbol", "period_end_date"),)
+
+    market: Mapped[str] = mapped_column(String(16), nullable=False)
+    symbol: Mapped[str] = mapped_column(String(16), nullable=False)
+    period_end_date: Mapped[date] = mapped_column(Date, nullable=False)
+    open: Mapped[float] = mapped_column(Numeric(18, 4), nullable=False)
+    high: Mapped[float] = mapped_column(Numeric(18, 4), nullable=False)
+    low: Mapped[float] = mapped_column(Numeric(18, 4), nullable=False)
+    close: Mapped[float] = mapped_column(Numeric(18, 4), nullable=False)
+    volume: Mapped[int] = mapped_column(BigInteger, nullable=False, default=0)
+    adjusted_close: Mapped[Optional[float]] = mapped_column(Numeric(18, 4))
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=datetime.utcnow)
+
+
+class DailyPrice47D(Base):
+    """47-day aggregated OHLCV bars. period_end_date is the last trading day in the 47-day block."""
+    __tablename__ = "daily_prices_47d"
+    __table_args__ = (PrimaryKeyConstraint("market", "symbol", "period_end_date"),)
+
+    market: Mapped[str] = mapped_column(String(16), nullable=False)
+    symbol: Mapped[str] = mapped_column(String(16), nullable=False)
+    period_end_date: Mapped[date] = mapped_column(Date, nullable=False)
+    open: Mapped[float] = mapped_column(Numeric(18, 4), nullable=False)
+    high: Mapped[float] = mapped_column(Numeric(18, 4), nullable=False)
+    low: Mapped[float] = mapped_column(Numeric(18, 4), nullable=False)
+    close: Mapped[float] = mapped_column(Numeric(18, 4), nullable=False)
+    volume: Mapped[int] = mapped_column(BigInteger, nullable=False, default=0)
+    adjusted_close: Mapped[Optional[float]] = mapped_column(Numeric(18, 4))
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=datetime.utcnow)
 
 
