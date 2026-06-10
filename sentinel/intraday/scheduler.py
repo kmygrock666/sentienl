@@ -30,18 +30,16 @@ class IntradayScheduler:
         
         # Configure notifier if settings available
         self.notifier = None
-        # Priority: Settings fields (likely from .env)
         token = self.settings.tg_token
         chat_id = self.settings.tg_chat_id
-        
-        # Fallback to known hardcoded defaults if not in env
-        if not token:
-            token = "5675544561:AAG7ANUJgyljr84SAKB4OAcf_WYTS_nw-jc"
-        if not chat_id:
-            chat_id = "-5018674933"
 
         if token and chat_id:
             self.notifier = TelegramNotifier(token, chat_id)
+        else:
+            logger.warning(
+                "Telegram credentials not configured (TS_TG_TOKEN / TS_TG_CHAT_ID); "
+                "notifications disabled."
+            )
 
     def is_trading_day(self, session: Session, check_date: date) -> bool:
         """Check if today is a trading day in TWSE."""
