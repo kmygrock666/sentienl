@@ -206,6 +206,28 @@ def build_parser() -> argparse.ArgumentParser:
         help="Write stock master sync diagnostics JSON to this path. Defaults to outputs/stock_master/sync_diagnostics.json.",
     )
 
+    institutional_parser = subparsers.add_parser(
+        "sync-institutional", help="Sync institutional (三大法人) net buy/sell flows for a date"
+    )
+    institutional_parser.add_argument("--date", required=True, help="Trading date in YYYY-MM-DD")
+    institutional_parser.add_argument(
+        "--market",
+        action="append",
+        dest="markets",
+        default=[],
+        help="Market to sync. Repeatable. Defaults to TWSE, TPEX.",
+    )
+    institutional_parser.add_argument(
+        "--source-mode",
+        choices=["fixture", "network", "auto"],
+        default="auto",
+        help="Institutional flow source mode. 'fixture' only uses local fixture CSV files.",
+    )
+    institutional_parser.add_argument(
+        "--database-url",
+        help="SQLAlchemy database URL. Defaults to TS_DATABASE_URL from environment.",
+    )
+
     backtest_parser = subparsers.add_parser(
         "backtest", help="Run backtest using the local price dataset"
     )
@@ -671,6 +693,58 @@ def main(argv: Optional[List[str]] = None) -> int:
                 "persisted_counts": persisted_counts,
             },
         )
+        return 0
+
+    if args.command == "sync-institutional":
+        trading_date = parse_iso_date(args.date)
+        markets = args.markets or ["TWSE", "TPEX"]
+
+        from sentinel.institutional import build_institutional_provider
+
+        frames = []
+        for market in markets:
+            provider = build_institutional_provider(market)
+            frames.append(
+                provider.fetch_day(
+                    trading_date=trading_date,
+                    settings=settings,
+                    source_mode=args.source_mode,
+                )
+            )
+        flows = pd.concat(frames, ignore_index=True) if frames else pd.DataFrame()
+
+        if flows.empty:
+            logger.info(
+                "institutional_sync_no_rows",
+                extra={"trading_date": trading_date.isoformat(), "markets": markets},
+            )
+            print(f"無 {trading_date.isoformat()} 三大法人買賣超資料。")
+            return 0
+
+        database_url = args.database_url or settings.database_url
+        if not database_url:
+            parser.error("--database-url is required or set TS_DATABASE_URL in the environment")
+
+        engine = create_db_engine(database_url)
+        create_schema(engine)
+
+        from sqlalchemy.orm import Session
+
+        from sentinel.persistence import upsert_institutional_flows
+
+        with Session(engine) as session:
+            persisted_rows = upsert_institutional_flows(session, flows)
+            session.commit()
+
+        logger.info(
+            "institutional_synced",
+            extra={
+                "trading_date": trading_date.isoformat(),
+                "markets": markets,
+                "rows": persisted_rows,
+            },
+        )
+        print(f"✅ 已同步 {trading_date.isoformat()} 三大法人買賣超，共 {persisted_rows} 筆。")
         return 0
 
     if args.command == "import-minute-bars":

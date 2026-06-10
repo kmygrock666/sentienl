@@ -17,6 +17,7 @@ from sentinel.models import (
     DailyPrice3D,
     DailyPrice47D,
     DataQuarantine,
+    InstitutionalFlow,
     JobRun,
     ScanResult,
     Stock,
@@ -257,6 +258,29 @@ def upsert_daily_prices(session: Session, prices: pd.DataFrame, data_version: st
     return len(rows)
 
 
+def upsert_institutional_flows(session: Session, flows: pd.DataFrame) -> int:
+    if flows.empty:
+        return 0
+
+    net_columns = ["foreign_net", "investment_trust_net", "dealer_net", "total_net"]
+    frame = flows[["market", "symbol", "trading_date"] + net_columns].copy()
+    frame["trading_date"] = pd.to_datetime(frame["trading_date"]).dt.date
+    for column in net_columns:
+        values = pd.to_numeric(frame[column])
+        # 用 list comprehension 而非 astype("Int64")：driver 需要原生 int/None，pd.NA 無法綁定
+        frame[column] = [int(v) if pd.notna(v) else None for v in values]
+    rows = frame.to_dict(orient="records")
+
+    _upsert_rows(
+        session=session,
+        table=InstitutionalFlow.__table__,
+        rows=rows,
+        conflict_columns=["market", "symbol", "trading_date"],
+        update_columns=net_columns,
+    )
+    return len(rows)
+
+
 def upsert_technical_indicators(
     session: Session, indicators: pd.DataFrame, prices: pd.DataFrame
 ) -> int:
@@ -463,6 +487,7 @@ def table_to_model(table_name: str):
         "daily_prices": DailyPrice,
         "daily_prices_3d": DailyPrice3D,
         "daily_prices_47d": DailyPrice47D,
+        "institutional_flows": InstitutionalFlow,
         "technical_indicators": TechnicalIndicator,
         "scan_results": ScanResult,
         "job_runs": JobRun,
