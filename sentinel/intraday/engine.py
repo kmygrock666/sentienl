@@ -131,7 +131,7 @@ def run_tomorrow_star_scan(
             continue
             
         # Rule 3: Volume >= 1.5 * 5-day Average Volume
-        avg_v5 = avg_volumes.get((p["market"], p["symbol"]), 0)
+        avg_v5 = float(avg_volumes.get((p["market"], p["symbol"]), 0))
         if avg_v5 > 0 and p["volume"] < (avg_v5 * 1.5):
             continue
 

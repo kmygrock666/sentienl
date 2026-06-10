@@ -156,7 +156,8 @@ def upsert_stocks(session: Session, prices: pd.DataFrame) -> int:
     stock_frame["industry"] = None
     stock_frame["list_status"] = "active"
     rows = _build_stock_rows(stock_frame)
-    _upsert_stock_rows(session, rows)
+    # industry 由 stock master sync 負責，price sync 不覆蓋
+    _upsert_stock_rows(session, rows, update_columns=["name", "list_status", "updated_at"])
     return len(rows)
 
 
@@ -190,13 +191,17 @@ def _build_stock_rows(stock_frame: pd.DataFrame) -> List[Dict[str, Any]]:
     ]
 
 
-def _upsert_stock_rows(session: Session, rows: List[Dict[str, Any]]) -> None:
+def _upsert_stock_rows(
+    session: Session,
+    rows: List[Dict[str, Any]],
+    update_columns: Optional[Sequence[str]] = None,
+) -> None:
     _upsert_rows(
         session=session,
         table=Stock.__table__,
         rows=rows,
         conflict_columns=["market", "symbol"],
-        update_columns=["name", "industry", "list_status", "updated_at"],
+        update_columns=update_columns or ["name", "industry", "list_status", "updated_at"],
     )
 
 
@@ -345,7 +350,10 @@ def upsert_scan_results(
                 "strategy_id": row.get("strategy_id", DEFAULT_STRATEGY_ID),
                 "trading_date": _to_date(row.get("trading_date", trading_date)),
                 "score": float(row.get("score", 1.0)),
-                "signals_json": _to_jsonable(row.get("signals_json")),
+                "signals_json": {
+                    **((_to_jsonable(row.get("signals_json")) or {})),
+                    **({"direction": row["direction"]} if row.get("direction") else {}),
+                },
                 "data_version": data_version,
                 "created_at": datetime.utcnow(),
             }
