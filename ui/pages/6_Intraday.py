@@ -282,7 +282,7 @@ with tab_trades:
 
 # ── Scheduler ─────────────────────────────────────────────────────────────
 with tab_scheduler:
-    poll_all_running()
+    # 頁面頂部（44 行）已呼叫 poll_all_running()，此處不重複輪詢
     section_header("自動化排程器（scheduler）")
     st.warning(
         "Scheduler 啟動後為常駐程序（APScheduler），關閉 UI 不會停止排程器。"
@@ -295,9 +295,7 @@ with tab_scheduler:
     running_schedulers = [t for t in scheduler_tasks if t.status == "running"]
     if running_schedulers:
         _running = running_schedulers[0]
-        st.success(
-            f"✅ Scheduler 已在執行中（Task #{_running.task_id}，PID {_running.pid}）"
-        )
+        st.success(f"✅ Scheduler 已在執行中（Task #{_running.task_id}，PID {_running.pid}）")
         if st.button("🛑 停止 Scheduler", key="stop_scheduler"):
             stop_task(_running.task_id)
             st.success(f"Scheduler（#{_running.task_id}）已停止")

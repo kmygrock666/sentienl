@@ -298,9 +298,10 @@ def stop_task(task_id: str) -> TaskRun:
             os.kill(task.pid, 0)  # 仍存活則繼續等；已結束會拋例外跳出
         os.kill(task.pid, signal.SIGKILL)
     except (OSError, ProcessLookupError):
-        pass  # 行程已結束
+        pass  # 行程在 SIGTERM 後或等待期間結束，兩者皆屬正常
 
     task.status = "stopped"
+    task.exit_code = -signal.SIGTERM  # 以訊號終止，沿用 POSIX 慣例記為 -15
     task.ended_at = datetime.utcnow().isoformat()
     task.stdout_tail = _read_tail(task.stdout_path)
     task.stderr_tail = _read_tail(task.stderr_path)

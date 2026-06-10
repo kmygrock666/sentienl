@@ -186,21 +186,27 @@ def test_stop_task_terminates_running_process(tmp_path, monkeypatch) -> None:
 
     store = TaskStore(path=tmp_path / "tasks.json")
     proc = subprocess.Popen(["sleep", "30"])
-    task = TaskRun(
-        task_id="stop-me",
-        command_id="scheduler",
-        argv=["sleep", "30"],
-        status="running",
-        pid=proc.pid,
-        started_at="2026-06-10T00:00:00",
-    )
-    store.save(task)
-    monkeypatch.setattr(cr, "_store", store)
+    try:
+        task = TaskRun(
+            task_id="stop-me",
+            command_id="scheduler",
+            argv=["sleep", "30"],
+            status="running",
+            pid=proc.pid,
+            started_at="2026-06-10T00:00:00",
+        )
+        store.save(task)
+        monkeypatch.setattr(cr, "_store", store)
 
-    stopped = stop_task("stop-me")
+        stopped = stop_task("stop-me")
 
-    assert stopped.status == "stopped"
-    assert proc.wait(timeout=5) is not None  # 程序已被終止
+        assert stopped.status == "stopped"
+        assert stopped.exit_code == -15  # SIGTERM 慣例
+        assert proc.wait(timeout=5) is not None  # 程序已被終止
+    finally:
+        if proc.returncode is None:
+            proc.kill()
+            proc.wait()
 
 
 def test_stop_task_noop_on_finished_task(tmp_path, monkeypatch) -> None:
