@@ -63,7 +63,11 @@ def apply_condition_edits(raw_config: dict, strategy_id: str, conditions: list[d
 
 
 def _is_missing(value: Any) -> bool:
-    """純量安全的缺值判斷（None / NaN）。"""
+    """純量安全的缺值判斷（None / NaN）。
+
+    data_editor 的儲存格只會是純量；list/dict 等非純量讓 pd.isna 回傳陣列時
+    一律視為「存在」，交由 jsonschema 驗證去拒絕。
+    """
     result = pd.isna(value)
     return bool(result) if isinstance(result, bool) else False
 
@@ -84,6 +88,8 @@ def clean_editor_rows(rows: list[dict]) -> list[dict]:
             new_row["multiplier"] = float(new_row["multiplier"])
         if "consecutive_days" in new_row:
             new_row["consecutive_days"] = int(new_row["consecutive_days"])
+        # 注意順序：NaN 已先丟棄，此處只處理「value 存在且 target 為空字串」的擇一；
+        # 若 value 原本是 NaN（已被移除），空字串 target 會保留並由 schema 驗證攔下
         if "target" in new_row and "value" in new_row and new_row["target"] == "":
             del new_row["target"]
         cleaned.append(new_row)
