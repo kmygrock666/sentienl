@@ -482,9 +482,7 @@ def _get_trading_day_sequence(session: Session, market: str) -> pd.DataFrame:
 
     stmt = (
         select(TradingCalendar.calendar_date)
-        .where(
-            TradingCalendar.exchange == market, TradingCalendar.is_trading_day == True
-        )  # noqa: E712
+        .where(TradingCalendar.exchange == market, TradingCalendar.is_trading_day.is_(True))
         .order_by(TradingCalendar.calendar_date)
     )
     rows = session.execute(stmt).fetchall()
