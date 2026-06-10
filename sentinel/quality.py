@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Optional
 
 import pandas as pd
 
@@ -26,7 +25,7 @@ class DailyPriceValidationResult:
 
 def validate_daily_prices(
     prices: pd.DataFrame,
-    reference_prices: Optional[pd.DataFrame] = None,
+    reference_prices: pd.DataFrame | None = None,
     spike_threshold: float = PRICE_SPIKE_THRESHOLD,
 ) -> DailyPriceValidationResult:
     """Validate a batch of daily price rows.
@@ -43,7 +42,9 @@ def validate_daily_prices(
     if prices.empty:
         return DailyPriceValidationResult(
             valid_prices=prices.copy(),
-            invalid_prices=prices.copy().assign(violations=pd.Series(dtype=object), violated_rule=pd.Series(dtype=str)),
+            invalid_prices=prices.copy().assign(
+                violations=pd.Series(dtype=object), violated_rule=pd.Series(dtype=str)
+            ),
         )
 
     frame = prices.copy().reset_index(drop=True)
@@ -91,59 +92,38 @@ def _detect_price_spikes(
     current `frame` itself so that within-batch cross-day comparisons use the
     same data source.  Rows with no prior close are NOT flagged (safe default).
 
-    Bulk-anomaly guard: if more than 30% of a trading date's rows are flagged,
+    Bulk-anomaly guard: if more than 15% of a trading date's rows are flagged,
     the flags for that date are cleared — this indicates a reference data
     failure (e.g. holiday gap, ex-dividend wave) rather than genuine bad data.
     """
-    # Build combined reference: historical CSV + current batch
     combined_ref = pd.concat([reference_prices, frame], ignore_index=True)
     combined_ref["trading_date"] = pd.to_datetime(combined_ref["trading_date"]).dt.date
-    # Keep only the most recent close per (market, symbol, trading_date)
     combined_ref = (
-        combined_ref
-        .sort_values("trading_date")
+        combined_ref.sort_values("trading_date")
         .drop_duplicates(subset=["market", "symbol", "trading_date"], keep="last")
+        .sort_values(["market", "symbol", "trading_date"])
     )
+    # 每列的「最近前一交易日收盤」＝組內 shift(1)
+    combined_ref["prev_close"] = combined_ref.groupby(["market", "symbol"])["close"].shift(1)
 
+    keyed = frame[["market", "symbol", "close"]].copy()
+    keyed["trading_date"] = pd.to_datetime(frame["trading_date"]).dt.date
+    merged = keyed.merge(
+        combined_ref[["market", "symbol", "trading_date", "prev_close"]],
+        on=["market", "symbol", "trading_date"],
+        how="left",
+    )
+    merged.index = frame.index
+
+    prev_close = pd.to_numeric(merged["prev_close"], errors="coerce")
+    current_close = pd.to_numeric(merged["close"], errors="coerce")
+    valid = prev_close.notna() & (prev_close != 0) & current_close.notna()
+    change = (current_close - prev_close).abs() / prev_close.abs()
+    spike_flags = valid & (change > threshold)
+
+    # Bulk-anomaly guard
     frame_dates = pd.to_datetime(frame["trading_date"]).dt.date
-    spike_flags = pd.Series(False, index=frame.index)
-
-    ref_grouped = {
-        key: grp.sort_values("trading_date")
-        for key, grp in combined_ref.groupby(["market", "symbol"])
-    }
-
-    for idx, row in frame.iterrows():
-        key = (row["market"], row["symbol"])
-        ref_grp = ref_grouped.get(key)
-        if ref_grp is None or ref_grp.empty:
-            continue
-
-        row_date = frame_dates.iloc[idx] if hasattr(frame_dates, "iloc") else pd.to_datetime(row["trading_date"]).date()
-        prior = ref_grp[ref_grp["trading_date"] < row_date]
-        if prior.empty:
-            continue
-
-        prev_close = prior.iloc[-1]["close"]
-        if pd.isna(prev_close) or prev_close == 0:
-            continue
-
-        current_close = row["close"]
-        if pd.isna(current_close):
-            continue
-
-        change = abs(current_close - prev_close) / abs(prev_close)
-        if change > threshold:
-            spike_flags.iloc[idx] = True
-
-    # Bulk-anomaly guard: clear flags for dates where >15% of stocks are flagged
-    # (indicates reference failure, not genuine bad data — e.g. holiday gap,
-    # ex-dividend wave, typhoon closure)
-    frame_dates_series = pd.to_datetime(frame["trading_date"]).dt.date
-    for date, grp_idx in frame.groupby(frame_dates_series).groups.items():
-        total = len(grp_idx)
-        flagged = spike_flags.loc[grp_idx].sum()
-        if total > 0 and flagged / total > 0.15:
-            spike_flags.loc[grp_idx] = False
+    flag_ratio = spike_flags.groupby(frame_dates).transform("mean")
+    spike_flags = spike_flags & ~(flag_ratio > 0.15)
 
     return spike_flags
