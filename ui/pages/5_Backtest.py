@@ -181,7 +181,7 @@ with tab_run:
 with tab_compare:
     section_header("回測結果比較", "選擇多個 run 比較績效指標與權益曲線")
 
-    backtests_dir = pathlib.Path("outputs/backtests")
+    backtests_dir = pathlib.Path(__file__).parent.parent.parent / "outputs" / "backtests"
     runs = discover_backtest_runs(backtests_dir)
 
     if not runs:
