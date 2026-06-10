@@ -792,6 +792,10 @@ def _compute_group_indicators(group: pd.DataFrame) -> pd.DataFrame:
     close, open_p, high, low = series["close"], series["open_p"], series["high"], series["low"]
     raw_close, volume = series["raw_close"], series["volume"]
 
+    # 呼叫順序有相依性，不可任意調換：
+    #   均線欄位（ma*、volume_ma5）供後三個 helper 讀取；
+    #   high_47d_prev（purity helper）供 washout helper 讀取；
+    #   high_20 / volume_ma5（oscillator、MA helper）供 multi-period helper 讀取。
     _add_moving_average_indicators(group, close, volume)
     _add_oscillator_indicators(group, close, open_p, high, low)
     _add_purity_and_blackcandle_indicators(group, close, open_p, high)
