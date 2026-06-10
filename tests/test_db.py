@@ -335,6 +335,92 @@ def test_create_schema_migrates_legacy_marketless_sqlite_tables(tmp_path) -> Non
         )
 
 
+def test_upsert_daily_prices_none_turnover_persists_as_null(tmp_path) -> None:
+    database_path = tmp_path / "turnover_null.db"
+    engine = create_db_engine(f"sqlite:///{database_path}")
+    create_schema(engine)
+
+    from sentinel.persistence import upsert_daily_prices
+
+    prices = pd.DataFrame(
+        [
+            {
+                "symbol": "0050",
+                "name": "元大台灣50",
+                "market": "TWSE",
+                "trading_date": date(2026, 1, 10),
+                "open": 180.0,
+                "high": 181.0,
+                "low": 179.0,
+                "close": 180.5,
+                "volume": 5000,
+                "turnover": None,
+            }
+        ]
+    )
+
+    with Session(engine) as session:
+        count = upsert_daily_prices(session, prices, data_version="v1")
+        session.commit()
+
+    assert count == 1
+
+    with Session(engine) as session:
+        row = session.query(DailyPrice).one()
+        assert row.turnover is None
+
+
+def test_upsert_technical_indicators_excludes_rows_with_no_matching_price_key(tmp_path) -> None:
+    database_path = tmp_path / "indicator_key_filter.db"
+    engine = create_db_engine(f"sqlite:///{database_path}")
+    create_schema(engine)
+
+    from sentinel.persistence import upsert_daily_prices, upsert_technical_indicators
+
+    prices = pd.DataFrame(
+        [
+            {
+                "symbol": "2330",
+                "name": "TSMC",
+                "market": "TWSE",
+                "trading_date": date(2026, 2, 5),
+                "open": 100.0,
+                "high": 101.0,
+                "low": 99.0,
+                "close": 100.5,
+                "volume": 1000,
+                "turnover": 100000,
+            }
+        ]
+    )
+
+    # indicators: one row whose key matches prices, one whose key does NOT
+    indicators = pd.DataFrame(
+        [
+            {
+                "market": "TWSE",
+                "symbol": "2330",
+                "trading_date": date(2026, 2, 5),
+                "ma5": 99.0,
+            },
+            {
+                "market": "TWSE",
+                "symbol": "9999",  # no matching price row
+                "trading_date": date(2026, 2, 5),
+                "ma5": 55.0,
+            },
+        ]
+    )
+
+    with Session(engine) as session:
+        upsert_daily_prices(session, prices, data_version="v1")
+        count = upsert_technical_indicators(session, indicators, prices)
+        session.commit()
+
+    # only the matching row's ma5 column should have been written
+    assert count == 1
+
+
 def _build_history(days: int) -> pd.DataFrame:
     records = []
     for offset in range(days):

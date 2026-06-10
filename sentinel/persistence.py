@@ -229,7 +229,8 @@ def upsert_daily_prices(session: Session, prices: pd.DataFrame, data_version: st
     for column in ("open", "high", "low", "close"):
         frame[column] = frame[column].astype(float)
     frame["volume"] = frame["volume"].astype(int)
-    turnover = pd.to_numeric(frame["turnover"], errors="coerce")
+    turnover = pd.to_numeric(frame["turnover"])
+    # 用 list comprehension 而非 astype("Int64")：driver 需要原生 int/None，pd.NA 無法綁定
     frame["turnover"] = [int(v) if pd.notna(v) else None for v in turnover]
     frame["adjusted_close"] = frame["close"]
     frame["data_version"] = data_version
