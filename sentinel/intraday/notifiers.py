@@ -1,11 +1,25 @@
 from __future__ import annotations
 
 import logging
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 import requests
 
+from sentinel.config import Settings
+
 logger = logging.getLogger(__name__)
+
+
+def build_telegram_notifier(settings: Settings) -> Optional[TelegramNotifier]:
+    """Build a notifier from settings; return None (with a warning) when credentials are missing."""
+    if settings.tg_token and settings.tg_chat_id:
+        return TelegramNotifier(settings.tg_token, settings.tg_chat_id)
+    logger.warning(
+        "Telegram credentials not configured (TS_TG_TOKEN / TS_TG_CHAT_ID); "
+        "notifications disabled."
+    )
+    return None
+
 
 class TelegramNotifier:
     """

@@ -13,7 +13,7 @@ from sentinel.models import TradingCalendar
 from sentinel.intraday.snapshots import capture_intraday_snapshot
 from sentinel.intraday.engine import run_tomorrow_star_scan
 from sentinel.intraday.trades import update_intraday_trades, monitor_and_close_intraday_trades
-from sentinel.intraday.notifiers import TelegramNotifier
+from sentinel.intraday.notifiers import TelegramNotifier, build_telegram_notifier
 from sentinel.config import Settings
 
 logger = logging.getLogger(__name__)
@@ -27,19 +27,9 @@ class IntradayScheduler:
         self.engine = create_db_engine(database_url)
         self.scheduler = BlockingScheduler()
         self.settings = Settings()
-        
-        # Configure notifier if settings available
-        self.notifier = None
-        token = self.settings.tg_token
-        chat_id = self.settings.tg_chat_id
 
-        if token and chat_id:
-            self.notifier = TelegramNotifier(token, chat_id)
-        else:
-            logger.warning(
-                "Telegram credentials not configured (TS_TG_TOKEN / TS_TG_CHAT_ID); "
-                "notifications disabled."
-            )
+        # Configure notifier if settings available
+        self.notifier: Optional[TelegramNotifier] = build_telegram_notifier(self.settings)
 
     def is_trading_day(self, session: Session, check_date: date) -> bool:
         """Check if today is a trading day in TWSE."""

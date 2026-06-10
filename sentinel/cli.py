@@ -882,16 +882,17 @@ def main(argv: Optional[List[str]] = None) -> int:
                 print("="*80 + "\n")
                 
                 if args.notify_telegram:
-                    from sentinel.intraday.notifiers import TelegramNotifier
+                    from sentinel.intraday.notifiers import build_telegram_notifier
 
-                    if settings.tg_token and settings.tg_chat_id:
+                    notifier = build_telegram_notifier(settings)
+                    if notifier is not None:
                         print("Sending notifications to Telegram...")
-                        notifier = TelegramNotifier(settings.tg_token, settings.tg_chat_id)
                         notifier.send_scan_results(results)
                     else:
                         print(
                             "Telegram credentials not configured "
-                            "(TS_TG_TOKEN / TS_TG_CHAT_ID); skipping notification."
+                            "(TS_TG_TOKEN / TS_TG_CHAT_ID); skipping notification.",
+                            file=sys.stderr,
                         )
             return 0
 
