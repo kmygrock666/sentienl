@@ -33,7 +33,9 @@ def run_backtest(
     trading_dates = sorted(evaluation_frame["trading_date"].dropna().unique().tolist())
     all_signals = []
     for trading_date in trading_dates:
-        daily_signals = scan_strategies(full_frame, trading_date=trading_date, strategies=strategies)
+        daily_signals = scan_strategies(
+            full_frame, trading_date=trading_date, strategies=strategies
+        )
         if daily_signals.empty:
             continue
         all_signals.append(daily_signals)
@@ -47,7 +49,7 @@ def run_backtest(
     for strategy in strategies:
         if not strategy.get("is_active", True):
             continue
-        
+
         # Skip strategies meant for minute bar execution
         if strategy.get("backtest", {}).get("execution_model_version") == "minute_bar_execution":
             continue
@@ -68,17 +70,23 @@ def run_backtest(
                 & (prices_with_indicators["symbol"] == signal["symbol"])
             ].copy()
             symbol_history["trading_date"] = pd.to_datetime(symbol_history["trading_date"]).dt.date
-            symbol_history = symbol_history[symbol_history["trading_date"] <= end_date].sort_values("trading_date").reset_index(drop=True)
-            
-            signal_indices = symbol_history.index[symbol_history["trading_date"] == signal["trading_date"]]
+            symbol_history = (
+                symbol_history[symbol_history["trading_date"] <= end_date]
+                .sort_values("trading_date")
+                .reset_index(drop=True)
+            )
+
+            signal_indices = symbol_history.index[
+                symbol_history["trading_date"] == signal["trading_date"]
+            ]
             if len(signal_indices) == 0:
                 continue
-            
+
             signal_index = int(signal_indices[-1])
             entry_index = signal_index + 1
             if entry_index >= len(symbol_history):
                 continue
-                
+
             # Dynamic Exit Check
             max_exit_index = signal_index + holding_period_days
             actual_exit_index = max_exit_index
@@ -86,39 +94,41 @@ def run_backtest(
                 if i >= len(symbol_history):
                     actual_exit_index = len(symbol_history) - 1
                     break
-                
+
                 curr_row = symbol_history.iloc[i]
                 prev_row = symbol_history.iloc[i - 1]
                 prev_body_low = min(float(prev_row["open"]), float(prev_row["close"]))
-                
+
                 if float(curr_row["close"]) < prev_body_low:
                     actual_exit_index = i
                     break
-            
+
             entry_row = symbol_history.iloc[entry_index]
             exit_row = symbol_history.iloc[actual_exit_index]
             entry_price = float(entry_row["open"])
             exit_price = float(exit_row["close"])
             trade_return = (exit_price / entry_price) - 1.0 if entry_price else 0.0
-            
-            candidates.append({
-                "strategy_id": strategy_id,
-                "strategy_name": strategy["name"],
-                "symbol": signal["symbol"],
-                "name": signal["name"],
-                "market": signal["market"],
-                "signal_date": signal["trading_date"],
-                "entry_date": entry_row["trading_date"],
-                "exit_date": exit_row["trading_date"],
-                "entry_price": entry_price,
-                "exit_price": exit_price,
-                "holding_period_days": holding_period_days,
-                "trade_return": trade_return,
-                "execution_model_version": strategy.get("backtest", {}).get(
-                    "execution_model_version",
-                    "next_open_to_close",
-                ),
-            })
+
+            candidates.append(
+                {
+                    "strategy_id": strategy_id,
+                    "strategy_name": strategy["name"],
+                    "symbol": signal["symbol"],
+                    "name": signal["name"],
+                    "market": signal["market"],
+                    "signal_date": signal["trading_date"],
+                    "entry_date": entry_row["trading_date"],
+                    "exit_date": exit_row["trading_date"],
+                    "entry_price": entry_price,
+                    "exit_price": exit_price,
+                    "holding_period_days": holding_period_days,
+                    "trade_return": trade_return,
+                    "execution_model_version": strategy.get("backtest", {}).get(
+                        "execution_model_version",
+                        "next_open_to_close",
+                    ),
+                }
+            )
 
         # Apply Capital Constraints if needed
         if initial_capital is not None:
@@ -127,14 +137,14 @@ def run_backtest(
             balance = initial_capital
             active_trades = []
             final_trades = []
-            
+
             # Use all trading dates in the evaluation period
             all_dates = sorted(trading_dates)
             for d in all_dates:
                 # 1. Check for exits TODAY
                 still_active = []
                 for t in active_trades:
-                    if t["exit_date"] <= d: # The money becomes available on the exit day
+                    if t["exit_date"] <= d:  # The money becomes available on the exit day
                         # Add profit (including principal)
                         balance += position_size * (1.0 + t["trade_return"])
                         t["balance"] = balance
@@ -142,14 +152,14 @@ def run_backtest(
                     else:
                         still_active.append(t)
                 active_trades = still_active
-                
+
                 # 2. Check for entries TODAY
                 todays_signals = [c for c in candidates if c["entry_date"] == d]
                 for s in todays_signals:
                     if balance >= position_size:
                         balance -= position_size
                         active_trades.append(s)
-            
+
             # Add any remaining active trades at the end of the backtest
             final_trades.extend(active_trades)
             all_strategy_trades.extend(final_trades)
@@ -165,8 +175,10 @@ def run_backtest(
         strategy_trades = trade_frame[trade_frame["strategy_id"] == strategy["strategy_id"]].copy()
         if strategy_trades.empty:
             continue
-        strategy_trades = strategy_trades.sort_values(["exit_date", "symbol"]).reset_index(drop=True)
-        
+        strategy_trades = strategy_trades.sort_values(["exit_date", "symbol"]).reset_index(
+            drop=True
+        )
+
         # Calculate Equity Curve
         if initial_capital is not None:
             # For capital-constrained: use trade PnL relative to initial capital
@@ -178,7 +190,7 @@ def run_backtest(
             # For unlimited (legacy): use cumulative compounding of 100% position
             # This often leads to unrealistic 2000%+ total return and -99% MDD
             equity = (1.0 + strategy_trades["trade_return"]).cumprod()
-            
+
         running_max = equity.cummax()
         drawdown = equity / running_max - 1.0
         total_return = float(equity.iloc[-1] - 1.0)
@@ -206,9 +218,15 @@ def run_backtest(
                 "turnover": float(len(strategy_trades.index) / max(years, 1.0)),
                 "benchmark_symbol": benchmark_symbol,
                 "benchmark_total_return": benchmark_return,
-                "exit_reasons": strategy.get("backtest", {}).get("liquidity_rule"), # placeholder or actual
+                "exit_reasons": strategy.get("backtest", {}).get(
+                    "liquidity_rule"
+                ),  # placeholder or actual
                 "initial_capital": initial_capital,
-                "final_balance": (initial_capital + strategy_trades["pnl_dollars"].sum()) if initial_capital is not None else None
+                "final_balance": (
+                    (initial_capital + strategy_trades["pnl_dollars"].sum())
+                    if initial_capital is not None
+                    else None
+                ),
             }
         )
 
@@ -223,7 +241,9 @@ def save_backtest_results(
     end_date: date,
     initial_capital: Optional[float] = None,
 ) -> dict[str, Path]:
-    output_path = output_dir / "backtests" / "{0}_{1}".format(start_date.isoformat(), end_date.isoformat())
+    output_path = (
+        output_dir / "backtests" / "{0}_{1}".format(start_date.isoformat(), end_date.isoformat())
+    )
     output_path.mkdir(parents=True, exist_ok=True)
 
     reports_path = output_path / "report.csv"
@@ -238,27 +258,38 @@ def save_backtest_results(
     # Generate Report Markdown
     if not reports.empty:
         md_reports = reports.copy()
-        md_reports = md_reports.rename(columns={
-            "strategy_id": "策略 ID",
-            "strategy_name": "策略名稱",
-            "trades": "交易次數",
-            "win_rate": "勝率",
-            "avg_trade_return": "平均報酬",
-            "total_return": "總報酬率",
-            "cagr": "年化報酬 (CAGR)",
-            "mdd": "最大回撤 (MDD)",
-            "turnover": "週轉率",
-            "benchmark_total_return": "基準報酬"
-        })
+        md_reports = md_reports.rename(
+            columns={
+                "strategy_id": "策略 ID",
+                "strategy_name": "策略名稱",
+                "trades": "交易次數",
+                "win_rate": "勝率",
+                "avg_trade_return": "平均報酬",
+                "total_return": "總報酬率",
+                "cagr": "年化報酬 (CAGR)",
+                "mdd": "最大回撤 (MDD)",
+                "turnover": "週轉率",
+                "benchmark_total_return": "基準報酬",
+            }
+        )
         # Format percentages
-        for col in ["勝率", "平均報酬", "總報酬率", "年化報酬 (CAGR)", "最大回撤 (MDD)", "基準報酬"]:
+        for col in [
+            "勝率",
+            "平均報酬",
+            "總報酬率",
+            "年化報酬 (CAGR)",
+            "最大回撤 (MDD)",
+            "基準報酬",
+        ]:
             if col in md_reports.columns:
-                md_reports[col] = md_reports[col].apply(lambda x: f"{x:.2%}" if pd.notnull(x) else "N/A")
-        
+                md_reports[col] = md_reports[col].apply(
+                    lambda x: f"{x:.2%}" if pd.notnull(x) else "N/A"
+                )
+
         md_content = f"# 回測績效報告\n\n"
         md_content += f"- 測試期間: {start_date} ~ {end_date}\n"
         md_content += f"- 執行時間: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n"
-        
+
         if initial_capital is not None:
             # Get the last strategy's capital info (assuming one strategy for now or same settings)
             # Better: take from the first row if multiple
@@ -270,9 +301,19 @@ def save_backtest_results(
                 md_content += f"- **初始資金: ${f_cap:,.0f}**\n"
                 md_content += f"- **最終餘額: ${f_bal:,.0f}**\n"
                 md_content += f"- **核心盈虧: ${net_pnl:,.0f} ({net_pnl/f_cap:+.2%})**\n"
-        
+
         md_content += "\n"
-        md_content += md_reports[['策略名稱', '交易次數', '勝率', '平均報酬', '總報酬率', '年化報酬 (CAGR)', '最大回撤 (MDD)']].to_markdown(index=False)
+        md_content += md_reports[
+            [
+                "策略名稱",
+                "交易次數",
+                "勝率",
+                "平均報酬",
+                "總報酬率",
+                "年化報酬 (CAGR)",
+                "最大回撤 (MDD)",
+            ]
+        ].to_markdown(index=False)
         report_md_path.write_text(md_content, encoding="utf-8")
     else:
         report_md_path.write_text(f"# 回測績效報告\n\n無交易紀錄。", encoding="utf-8")
@@ -282,25 +323,39 @@ def save_backtest_results(
         md_trades = trades.copy()
         market_map = {"TWSE": "上市", "TPEX": "上櫃"}
         md_trades["market"] = md_trades["market"].map(lambda x: market_map.get(x, x))
-        md_trades = md_trades.rename(columns={
-            "strategy_name": "策略",
-            "symbol": "代號",
-            "name": "名稱",
-            "market": "市場",
-            "entry_date": "進場日",
-            "exit_date": "出場日",
-            "entry_price": "進場價",
-            "exit_price": "出場價",
-            "trade_return": "報酬率",
-            "balance": "餘額"
-        })
+        md_trades = md_trades.rename(
+            columns={
+                "strategy_name": "策略",
+                "symbol": "代號",
+                "name": "名稱",
+                "market": "市場",
+                "entry_date": "進場日",
+                "exit_date": "出場日",
+                "entry_price": "進場價",
+                "exit_price": "出場價",
+                "trade_return": "報酬率",
+                "balance": "餘額",
+            }
+        )
         md_trades["報酬率"] = md_trades["報酬率"].apply(lambda x: f"{x:.2%}")
         if "餘額" in md_trades.columns:
-            md_trades["餘額"] = md_trades["餘額"].apply(lambda x: f"${x:,.0f}" if pd.notnull(x) else "")
-        
+            md_trades["餘額"] = md_trades["餘額"].apply(
+                lambda x: f"${x:,.0f}" if pd.notnull(x) else ""
+            )
+
         md_content = f"# 交易明細\n\n"
         md_content += f"- 總計交易: {len(md_trades)} 筆\n\n"
-        display_cols = ['策略', '市場', '代號', '名稱', '進場日', '進場價', '出場日', '出場價', '報酬率']
+        display_cols = [
+            "策略",
+            "市場",
+            "代號",
+            "名稱",
+            "進場日",
+            "進場價",
+            "出場日",
+            "出場價",
+            "報酬率",
+        ]
         if "餘額" in md_trades.columns:
             display_cols.append("餘額")
         md_content += md_trades[display_cols].to_markdown(index=False)
@@ -317,11 +372,11 @@ def save_backtest_results(
     }
     metadata_path.write_text(json.dumps(metadata, ensure_ascii=False, indent=2), encoding="utf-8")
     return {
-        "report": reports_path, 
-        "trades": trades_path, 
+        "report": reports_path,
+        "trades": trades_path,
         "report_md": report_md_path,
         "trades_md": trades_md_path,
-        "metadata": metadata_path
+        "metadata": metadata_path,
     }
 
 
@@ -334,9 +389,7 @@ def _compute_benchmark_return(
     if not benchmark_symbol:
         return None
 
-    benchmark = prices_with_indicators[
-        prices_with_indicators["symbol"] == benchmark_symbol
-    ].copy()
+    benchmark = prices_with_indicators[prices_with_indicators["symbol"] == benchmark_symbol].copy()
     if benchmark.empty:
         return None
 

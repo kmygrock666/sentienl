@@ -1,4 +1,5 @@
 """Backtest — 回測中心頁面（Phase B）。"""
+
 from __future__ import annotations
 
 import pathlib
@@ -88,7 +89,9 @@ with tab_run:
             strat_mode = ec2.selectbox("策略模式", ["standard", "tomorrow_star"])
             ec3, ec4, ec5 = st.columns(3)
             symbol_filter = ec3.text_input("限定股票代號（留空=全部）")
-            initial_cap = ec4.number_input("初始資金（0=無限制）", value=0, min_value=0, step=100000)
+            initial_cap = ec4.number_input(
+                "初始資金（0=無限制）", value=0, min_value=0, step=100000
+            )
             position_size = ec5.number_input("單筆金額", value=100000, min_value=1000, step=10000)
 
         params_bt: dict = {
@@ -122,8 +125,12 @@ with tab_run:
     section_header("回測報表瀏覽", "自動搜尋 outputs/ 目錄下最新的 report.csv / trades.csv")
 
     outputs_dir = pathlib.Path(__file__).parent.parent.parent / "outputs"
-    report_files = sorted(outputs_dir.glob("**/report.csv"), key=lambda p: p.stat().st_mtime, reverse=True)
-    trades_files = sorted(outputs_dir.glob("**/trades.csv"), key=lambda p: p.stat().st_mtime, reverse=True)
+    report_files = sorted(
+        outputs_dir.glob("**/report.csv"), key=lambda p: p.stat().st_mtime, reverse=True
+    )
+    trades_files = sorted(
+        outputs_dir.glob("**/trades.csv"), key=lambda p: p.stat().st_mtime, reverse=True
+    )
 
     if not report_files and not trades_files:
         st.info("尚無回測報表，請先執行回測")

@@ -58,23 +58,39 @@ def _fetch_text_with_curl(
     user_agent = (headers or {}).get("User-Agent")
     if user_agent:
         command.extend(["-A", user_agent])
-    
+
     # Add common browser-like headers to reduce likelihood of being blocked
-    command.extend([
-        "-H", "Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
-        "-H", "Accept-Language: zh-TW,zh;q=0.9,en-US;q=0.8,en;q=0.7",
-        "-H", "Cache-Control: no-cache",
-        "-H", "Pragma: no-cache",
-        "-H", "Sec-Fetch-Dest: document",
-        "-H", "Sec-Fetch-Mode: navigate",
-        "-H", "Sec-Fetch-Site: none",
-        "-H", "Sec-Fetch-User: ?1",
-        "-H", "Upgrade-Insecure-Requests: 1",
-    ])
-    
+    command.extend(
+        [
+            "-H",
+            "Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
+            "-H",
+            "Accept-Language: zh-TW,zh;q=0.9,en-US;q=0.8,en;q=0.7",
+            "-H",
+            "Cache-Control: no-cache",
+            "-H",
+            "Pragma: no-cache",
+            "-H",
+            "Sec-Fetch-Dest: document",
+            "-H",
+            "Sec-Fetch-Mode: navigate",
+            "-H",
+            "Sec-Fetch-Site: none",
+            "-H",
+            "Sec-Fetch-User: ?1",
+            "-H",
+            "Upgrade-Insecure-Requests: 1",
+        ]
+    )
+
     # Add Referer if it's TPEX to look more like a browser navigation
     if "tpex.org.tw" in url:
-        command.extend(["-H", "Referer: https://www.tpex.org.tw/web/stock/aftertrading/daily_close_quotes/stk_quote.php?l=zh-tw"])
+        command.extend(
+            [
+                "-H",
+                "Referer: https://www.tpex.org.tw/web/stock/aftertrading/daily_close_quotes/stk_quote.php?l=zh-tw",
+            ]
+        )
 
     command.append(full_url)
 

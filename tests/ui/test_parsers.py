@@ -1,4 +1,5 @@
 """測試 CLI 輸出解析器。"""
+
 from __future__ import annotations
 
 import pytest

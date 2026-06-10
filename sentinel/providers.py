@@ -27,13 +27,20 @@ class DailyPriceProvider(ABC):
     fixture_prefix: str
 
     @abstractmethod
-    def fetch_day(self, trading_date: date, settings: Settings, source_mode: str = SOURCE_MODE_AUTO) -> pd.DataFrame:
+    def fetch_day(
+        self, trading_date: date, settings: Settings, source_mode: str = SOURCE_MODE_AUTO
+    ) -> pd.DataFrame:
         raise NotImplementedError
 
     def fixture_path(self, trading_date: date, settings: Settings) -> Path:
-        return settings.raw_dir / "fixtures" / "prices" / "{0}_{1}.csv".format(
-            self.fixture_prefix,
-            trading_date.strftime("%Y%m%d"),
+        return (
+            settings.raw_dir
+            / "fixtures"
+            / "prices"
+            / "{0}_{1}.csv".format(
+                self.fixture_prefix,
+                trading_date.strftime("%Y%m%d"),
+            )
         )
 
     def load_fixture_payload(self, trading_date: date, settings: Settings) -> Optional[str]:
@@ -48,7 +55,9 @@ class TwseDailyPriceProvider(DailyPriceProvider):
     endpoint = "https://www.twse.com.tw/exchangeReport/MI_INDEX"
     fixture_prefix = "twse_daily"
 
-    def fetch_day(self, trading_date: date, settings: Settings, source_mode: str = SOURCE_MODE_AUTO) -> pd.DataFrame:
+    def fetch_day(
+        self, trading_date: date, settings: Settings, source_mode: str = SOURCE_MODE_AUTO
+    ) -> pd.DataFrame:
         if source_mode == SOURCE_MODE_FIXTURE:
             payload = self.load_fixture_payload(trading_date=trading_date, settings=settings)
             if payload is None:
@@ -86,7 +95,12 @@ class TwseDailyPriceProvider(DailyPriceProvider):
                     },
                 )
                 return frame
-            except (requests.RequestException, ValueError, RuntimeError, subprocess.CalledProcessError) as exc:
+            except (
+                requests.RequestException,
+                ValueError,
+                RuntimeError,
+                subprocess.CalledProcessError,
+            ) as exc:
                 last_error = exc
                 logger.warning(
                     "fetch_retry",
@@ -99,10 +113,9 @@ class TwseDailyPriceProvider(DailyPriceProvider):
                 )
                 if attempt == settings.max_retries:
                     break
-                sleep_seconds = (
-                    settings.retry_backoff_seconds * (2 ** (attempt - 1))
-                    + random.uniform(0, settings.retry_jitter_seconds)
-                )
+                sleep_seconds = settings.retry_backoff_seconds * (
+                    2 ** (attempt - 1)
+                ) + random.uniform(0, settings.retry_jitter_seconds)
                 time.sleep(sleep_seconds)
 
         raise RuntimeError(
@@ -116,7 +129,7 @@ class TwseDailyPriceProvider(DailyPriceProvider):
 
     def _parse_csv(self, payload: str, trading_date: date) -> pd.DataFrame:
         lines = [line.strip() for line in payload.splitlines() if line.strip()]
-        
+
         # 1. Validate data date from header (Format: 115年04月20日 每日收盤行情)
         data_date_raw = next((line for line in lines[:5] if "每日收盤行情" in line), None)
         if data_date_raw:
@@ -124,9 +137,15 @@ class TwseDailyPriceProvider(DailyPriceProvider):
             roc_year = trading_date.year - 1911
             # Check for year, month and day separately for better robustness
             y_ok = f"{roc_year}年" in data_date_raw
-            m_ok = f"{trading_date.month:02}月" in data_date_raw or f"{trading_date.month}月" in data_date_raw
-            d_ok = f"{trading_date.day:02}日" in data_date_raw or f"{trading_date.day}日" in data_date_raw
-            
+            m_ok = (
+                f"{trading_date.month:02}月" in data_date_raw
+                or f"{trading_date.month}月" in data_date_raw
+            )
+            d_ok = (
+                f"{trading_date.day:02}日" in data_date_raw
+                or f"{trading_date.day}日" in data_date_raw
+            )
+
             if not (y_ok and m_ok and d_ok):
                 logger.warning(
                     "market_data_date_not_match",
@@ -205,10 +224,14 @@ class TwseDailyPriceProvider(DailyPriceProvider):
 
 class TpexDailyPriceProvider(DailyPriceProvider):
     market = "TPEX"
-    endpoint = "https://www.tpex.org.tw/web/stock/aftertrading/daily_close_quotes/stk_quote_result.php"
+    endpoint = (
+        "https://www.tpex.org.tw/web/stock/aftertrading/daily_close_quotes/stk_quote_result.php"
+    )
     fixture_prefix = "tpex_daily"
 
-    def fetch_day(self, trading_date: date, settings: Settings, source_mode: str = SOURCE_MODE_AUTO) -> pd.DataFrame:
+    def fetch_day(
+        self, trading_date: date, settings: Settings, source_mode: str = SOURCE_MODE_AUTO
+    ) -> pd.DataFrame:
         if source_mode == SOURCE_MODE_FIXTURE:
             payload = self.load_fixture_payload(trading_date=trading_date, settings=settings)
             if payload is None:
@@ -247,7 +270,12 @@ class TpexDailyPriceProvider(DailyPriceProvider):
                     },
                 )
                 return frame
-            except (requests.RequestException, ValueError, RuntimeError, subprocess.CalledProcessError) as exc:
+            except (
+                requests.RequestException,
+                ValueError,
+                RuntimeError,
+                subprocess.CalledProcessError,
+            ) as exc:
                 last_error = exc
                 logger.warning(
                     "fetch_retry",
@@ -260,10 +288,9 @@ class TpexDailyPriceProvider(DailyPriceProvider):
                 )
                 if attempt == settings.max_retries:
                     break
-                sleep_seconds = (
-                    settings.retry_backoff_seconds * (2 ** (attempt - 1))
-                    + random.uniform(0, settings.retry_jitter_seconds)
-                )
+                sleep_seconds = settings.retry_backoff_seconds * (
+                    2 ** (attempt - 1)
+                ) + random.uniform(0, settings.retry_jitter_seconds)
                 time.sleep(sleep_seconds)
 
         raise RuntimeError(
@@ -277,15 +304,21 @@ class TpexDailyPriceProvider(DailyPriceProvider):
 
     def _parse_csv(self, payload: str, trading_date: date) -> pd.DataFrame:
         lines = [line.strip() for line in payload.splitlines() if line.strip()]
-        
+
         # 1. Validate data date from header (Format: 資料日期:115/04/20)
         data_date_raw = next((line for line in lines[:5] if "資料日期" in line), None)
         if data_date_raw:
             roc_year = trading_date.year - 1911
             y_ok = str(roc_year) in data_date_raw
-            m_ok = f"/{trading_date.month:02}/" in data_date_raw or f"/{trading_date.month}/" in data_date_raw
-            d_ok = f"/{trading_date.day:02}" in data_date_raw or f"/{trading_date.day}" in data_date_raw
-            
+            m_ok = (
+                f"/{trading_date.month:02}/" in data_date_raw
+                or f"/{trading_date.month}/" in data_date_raw
+            )
+            d_ok = (
+                f"/{trading_date.day:02}" in data_date_raw
+                or f"/{trading_date.day}" in data_date_raw
+            )
+
             if not (y_ok and m_ok and d_ok):
                 logger.warning(
                     "market_data_date_not_match",
@@ -298,7 +331,11 @@ class TpexDailyPriceProvider(DailyPriceProvider):
                 return pd.DataFrame(columns=self._output_columns())
 
         header_index = next(
-            (idx for idx, line in enumerate(lines) if "代號" in line and "成交股數" in line and "收盤" in line),
+            (
+                idx
+                for idx, line in enumerate(lines)
+                if "代號" in line and "成交股數" in line and "收盤" in line
+            ),
             None,
         )
         if header_index is None:
@@ -442,22 +479,26 @@ def fetch_yahoo_historical(
 
             for dt, row in ticker_df.iterrows():
                 close_val = row.get("Close")
-                if close_val is None or (hasattr(close_val, "__float__") and pd.isna(float(close_val))):
+                if close_val is None or (
+                    hasattr(close_val, "__float__") and pd.isna(float(close_val))
+                ):
                     continue
                 dt_date = dt.date() if hasattr(dt, "date") else dt
-                all_rows.append({
-                    "symbol": symbol,
-                    "name": "",
-                    "market": market,
-                    "trading_date": dt_date,
-                    "open": _safe_float(row.get("Open")),
-                    "high": _safe_float(row.get("High")),
-                    "low": _safe_float(row.get("Low")),
-                    "close": _safe_float(close_val),
-                    "volume": _safe_int(row.get("Volume")),
-                    "turnover": 0,
-                    "source": "yahoo_finance",
-                })
+                all_rows.append(
+                    {
+                        "symbol": symbol,
+                        "name": "",
+                        "market": market,
+                        "trading_date": dt_date,
+                        "open": _safe_float(row.get("Open")),
+                        "high": _safe_float(row.get("High")),
+                        "low": _safe_float(row.get("Low")),
+                        "close": _safe_float(close_val),
+                        "volume": _safe_int(row.get("Volume")),
+                        "turnover": 0,
+                        "source": "yahoo_finance",
+                    }
+                )
 
         logger.info(
             "yahoo_chunk_fetched",
@@ -469,10 +510,21 @@ def fetch_yahoo_historical(
         )
 
     if not all_rows:
-        return pd.DataFrame(columns=[
-            "symbol", "name", "market", "trading_date",
-            "open", "high", "low", "close", "volume", "turnover", "source",
-        ])
+        return pd.DataFrame(
+            columns=[
+                "symbol",
+                "name",
+                "market",
+                "trading_date",
+                "open",
+                "high",
+                "low",
+                "close",
+                "volume",
+                "turnover",
+                "source",
+            ]
+        )
 
     result = pd.DataFrame(all_rows)
     result["trading_date"] = pd.to_datetime(result["trading_date"]).dt.date

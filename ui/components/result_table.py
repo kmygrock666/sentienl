@@ -1,4 +1,5 @@
 """結果表格元件：高密度資料呈現與 CSV 下載。"""
+
 from __future__ import annotations
 
 import pandas as pd
@@ -27,9 +28,9 @@ def render_df(
 
 
 _DIRECTION_BADGE = {
-    "long":  '<span style="color:#D84B4B;font-weight:600;font-size:0.78rem">LONG</span>',
+    "long": '<span style="color:#D84B4B;font-weight:600;font-size:0.78rem">LONG</span>',
     "short": '<span style="color:#3FA66B;font-weight:600;font-size:0.78rem">SHORT</span>',
-    "":      '<span style="color:#9AA6B2;font-size:0.78rem">—</span>',
+    "": '<span style="color:#9AA6B2;font-size:0.78rem">—</span>',
 }
 
 
@@ -41,8 +42,16 @@ def render_scan_results(df: pd.DataFrame) -> None:
 
     # 統計摘要
     total = len(df)
-    long_cnt = (df.get("direction", pd.Series(dtype=str)) == "long").sum() if "direction" in df.columns else 0
-    short_cnt = (df.get("direction", pd.Series(dtype=str)) == "short").sum() if "direction" in df.columns else 0
+    long_cnt = (
+        (df.get("direction", pd.Series(dtype=str)) == "long").sum()
+        if "direction" in df.columns
+        else 0
+    )
+    short_cnt = (
+        (df.get("direction", pd.Series(dtype=str)) == "short").sum()
+        if "direction" in df.columns
+        else 0
+    )
     sm1, sm2, sm3 = st.columns(3)
     sm1.metric("命中總數", total)
     sm2.metric("做多", int(long_cnt))
@@ -50,8 +59,15 @@ def render_scan_results(df: pd.DataFrame) -> None:
 
     # 顯示欄位順序（含 direction）
     preferred_cols = [
-        "trading_date", "direction", "market", "symbol", "name",
-        "industry", "strategy_id", "score", "close",
+        "trading_date",
+        "direction",
+        "market",
+        "symbol",
+        "name",
+        "industry",
+        "strategy_id",
+        "score",
+        "close",
     ]
     display = df[[c for c in preferred_cols if c in df.columns]].copy()
     # industry 全空時不顯示（資料尚未同步）

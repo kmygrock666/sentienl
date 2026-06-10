@@ -1,4 +1,5 @@
 """Sentinel UI — Overview 頁面（首頁）。"""
+
 from __future__ import annotations
 
 import pathlib
@@ -17,7 +18,12 @@ from ui.services.command_runner import find_running_task, get_store, launch_task
 from ui.services.command_specs import RUN, RUN_INTRADAY, SYNC
 from ui.services.db import get_engine
 from ui.services.docker_service import get_db_container_status, start_db_container
-from ui.services.queries import get_data_freshness, get_latest_job_runs, get_latest_price_date, get_latest_scan_summary
+from ui.services.queries import (
+    get_data_freshness,
+    get_latest_job_runs,
+    get_latest_price_date,
+    get_latest_scan_summary,
+)
 
 st.set_page_config(
     page_title="Sentinel 選股系統",
@@ -36,9 +42,11 @@ store = get_store()
 _latest_price_date: Optional[date] = None
 try:
     from ui.services.db import get_engine as _get_engine_tmp
+
     _latest_price_date = get_latest_price_date(_get_engine_tmp())
 except Exception:
     pass
+
 
 # ── 執行中任務自動輪詢（fragment 獨立刷新，不重跑整頁）───────────────────
 @st.fragment(run_every=5)
@@ -49,6 +57,7 @@ def _running_banner() -> None:
         names = ", ".join(t.command_id for t in running[:3])
         st.warning(f"⚙️ {len(running)} 個任務執行中：{names}　→　[Task Center](/9_Task_Center)")
 
+
 _running_banner()
 
 # ── 快速操作 ────────────────────────────────────────────────────────────────
@@ -58,7 +67,9 @@ qa1, qa2, qa3, qa4 = st.columns(4)
 if qa1.button("▶ Sync（TWSE + TPEX）", use_container_width=True):
     _running_sync = find_running_task(SYNC.command_id)
     if _running_sync:
-        st.warning(f"⚠️ sync 任務已在執行中（#{_running_sync.task_id}）→ [Task Center](/9_Task_Center)")
+        st.warning(
+            f"⚠️ sync 任務已在執行中（#{_running_sync.task_id}）→ [Task Center](/9_Task_Center)"
+        )
     else:
         task = launch_task(SYNC, {"market": ["TWSE", "TPEX"]})
         st.session_state["_last_sync_task"] = task.task_id
@@ -67,21 +78,28 @@ if qa1.button("▶ Sync（TWSE + TPEX）", use_container_width=True):
 if qa2.button("▶ Run（最新收盤日）", use_container_width=True):
     _running_run = find_running_task(RUN.command_id)
     if _running_run:
-        st.warning(f"⚠️ run 任務已在執行中（#{_running_run.task_id}）→ [Task Center](/9_Task_Center)")
+        st.warning(
+            f"⚠️ run 任務已在執行中（#{_running_run.task_id}）→ [Task Center](/9_Task_Center)"
+        )
     else:
         _run_date = _latest_price_date or date.today()
-        task = launch_task(RUN, {
-            "start-date": (_run_date - timedelta(days=1)).isoformat(),
-            "end-date": _run_date.isoformat(),
-            "market": ["TWSE", "TPEX"],
-        })
+        task = launch_task(
+            RUN,
+            {
+                "start-date": (_run_date - timedelta(days=1)).isoformat(),
+                "end-date": _run_date.isoformat(),
+                "market": ["TWSE", "TPEX"],
+            },
+        )
         st.session_state["_last_run_task"] = task.task_id
         st.rerun()
 
 if qa3.button("▶ Run Intraday", use_container_width=True):
     _running_intraday = find_running_task(RUN_INTRADAY.command_id)
     if _running_intraday:
-        st.warning(f"⚠️ run-intraday 任務已在執行中（#{_running_intraday.task_id}）→ [Task Center](/9_Task_Center)")
+        st.warning(
+            f"⚠️ run-intraday 任務已在執行中（#{_running_intraday.task_id}）→ [Task Center](/9_Task_Center)"
+        )
     else:
         task = launch_task(RUN_INTRADAY, {"top": 300, "min-gain": 0.075})
         st.session_state["_last_intraday_task"] = task.task_id
@@ -104,10 +122,12 @@ if st.session_state.get("_last_intraday_task"):
 
 st.divider()
 
+
 # ── 資料庫狀態 ──────────────────────────────────────────────────────────────
 @st.cache_data(ttl=10, show_spinner=False)
 def _cached_db_status() -> str:
     return get_db_container_status()
+
 
 section_header("資料庫狀態", "Docker 容器監控（重開機後需手動啟動）")
 _db_status = _cached_db_status()
@@ -173,7 +193,11 @@ if not freshness_df.empty:
 # ── 策略命中摘要 ────────────────────────────────────────────────────────────
 section_header(
     "策略命中摘要",
-    f"掃描日：{scan_summary['latest_date']} ｜ 總命中：{scan_summary['total_hits']} 檔" if scan_summary["latest_date"] else "尚無掃描資料",
+    (
+        f"掃描日：{scan_summary['latest_date']} ｜ 總命中：{scan_summary['total_hits']} 檔"
+        if scan_summary["latest_date"]
+        else "尚無掃描資料"
+    ),
 )
 by_strategy = scan_summary.get("by_strategy")
 if by_strategy is not None and not by_strategy.empty:
@@ -215,6 +239,7 @@ section_header("DB Job 記錄（sentinel 內建 pipeline）")
 job_df = get_latest_job_runs(engine, limit=10)
 if not job_df.empty:
     from ui.components.tables import render_job_runs
+
     render_job_runs(job_df)
 else:
     st.info("尚無 DB Job 記錄")

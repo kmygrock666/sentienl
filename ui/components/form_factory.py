@@ -1,4 +1,5 @@
 """表單工廠：依 CommandSpec.fields 自動渲染 Streamlit 表單元件。"""
+
 from __future__ import annotations
 
 from datetime import date
@@ -16,8 +17,13 @@ def _render_field(f: FieldSpec, prefix: str, defaults: dict) -> Any:
     label = f.label + (" *" if f.required else "")
 
     if f.type == "text":
-        return st.text_input(label, value=str(default) if default else "", key=key, help=f.help,
-                             placeholder=f.placeholder)
+        return st.text_input(
+            label,
+            value=str(default) if default else "",
+            key=key,
+            help=f.help,
+            placeholder=f.placeholder,
+        )
 
     if f.type == "number":
         kw: dict[str, Any] = {}
@@ -54,13 +60,20 @@ def _render_field(f: FieldSpec, prefix: str, defaults: dict) -> Any:
         return st.checkbox(label, value=bool(default), key=key, help=f.help)
 
     if f.type == "path":
-        return st.text_input(label, value=str(default) if default else "", key=key, help=f.help,
-                             placeholder="/path/to/file")
+        return st.text_input(
+            label,
+            value=str(default) if default else "",
+            key=key,
+            help=f.help,
+            placeholder="/path/to/file",
+        )
 
     return st.text_input(label, value=str(default) if default else "", key=key)
 
 
-def render_form(spec: CommandSpec, prefix: str = "", defaults: dict | None = None, columns: int = 2) -> dict:
+def render_form(
+    spec: CommandSpec, prefix: str = "", defaults: dict | None = None, columns: int = 2
+) -> dict:
     """
     依 CommandSpec.fields 自動渲染整個表單。
 

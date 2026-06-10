@@ -29,7 +29,9 @@ def render_job_runs(df: pd.DataFrame) -> None:
         .apply(lambda s: f"{s:.0f}s" if pd.notna(s) else "—")
     )
     st.dataframe(
-        display[["job_name", "status", "start_time", "duration", "rows_in", "rows_out", "error_summary"]],
+        display[
+            ["job_name", "status", "start_time", "duration", "rows_in", "rows_out", "error_summary"]
+        ],
         width="stretch",
         hide_index=True,
     )
@@ -40,7 +42,9 @@ def render_scan_results(df: pd.DataFrame) -> pd.DataFrame:
     if df.empty:
         st.info("此條件無結果")
         return pd.DataFrame()
-    display = df[["trading_date", "market", "symbol", "name", "industry", "strategy_id", "score", "close"]].copy()
+    display = df[
+        ["trading_date", "market", "symbol", "name", "industry", "strategy_id", "score", "close"]
+    ].copy()
     display["score"] = display["score"].apply(lambda x: f"{x:.4f}" if x is not None else "—")
     display["close"] = display["close"].apply(lambda x: f"{x:.2f}" if x is not None else "—")
 

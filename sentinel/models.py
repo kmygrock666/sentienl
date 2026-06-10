@@ -3,7 +3,18 @@ from __future__ import annotations
 from datetime import date, datetime
 from typing import Any, Dict, Optional
 
-from sqlalchemy import BigInteger, JSON, Boolean, Date, DateTime, Integer, Numeric, PrimaryKeyConstraint, String, Text
+from sqlalchemy import (
+    JSON,
+    BigInteger,
+    Boolean,
+    Date,
+    DateTime,
+    Integer,
+    Numeric,
+    PrimaryKeyConstraint,
+    String,
+    Text,
+)
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 
@@ -20,8 +31,12 @@ class Stock(Base):
     name: Mapped[Optional[str]] = mapped_column(String(128))
     industry: Mapped[Optional[str]] = mapped_column(String(128))
     list_status: Mapped[str] = mapped_column(String(32), nullable=False, default="active")
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=datetime.utcnow)
-    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=datetime.utcnow
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=datetime.utcnow
+    )
 
 
 class DailyPrice(Base):
@@ -39,11 +54,14 @@ class DailyPrice(Base):
     turnover: Mapped[Optional[int]] = mapped_column(Numeric(20, 0))
     adjusted_close: Mapped[Optional[float]] = mapped_column(Numeric(18, 4))
     data_version: Mapped[Optional[str]] = mapped_column(String(64))
-    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=datetime.utcnow)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=datetime.utcnow
+    )
 
 
 class DailyPrice3D(Base):
     """3-day aggregated OHLCV bars. period_end_date is the last trading day in the 3-day block."""
+
     __tablename__ = "daily_prices_3d"
     __table_args__ = (PrimaryKeyConstraint("market", "symbol", "period_end_date"),)
 
@@ -56,11 +74,14 @@ class DailyPrice3D(Base):
     close: Mapped[float] = mapped_column(Numeric(18, 4), nullable=False)
     volume: Mapped[int] = mapped_column(BigInteger, nullable=False, default=0)
     adjusted_close: Mapped[Optional[float]] = mapped_column(Numeric(18, 4))
-    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=datetime.utcnow)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=datetime.utcnow
+    )
 
 
 class DailyPrice47D(Base):
     """47-day aggregated OHLCV bars. period_end_date is the last trading day in the 47-day block."""
+
     __tablename__ = "daily_prices_47d"
     __table_args__ = (PrimaryKeyConstraint("market", "symbol", "period_end_date"),)
 
@@ -73,7 +94,9 @@ class DailyPrice47D(Base):
     close: Mapped[float] = mapped_column(Numeric(18, 4), nullable=False)
     volume: Mapped[int] = mapped_column(BigInteger, nullable=False, default=0)
     adjusted_close: Mapped[Optional[float]] = mapped_column(Numeric(18, 4))
-    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=datetime.utcnow)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=datetime.utcnow
+    )
 
 
 class InstitutionalFlow(Base):
@@ -119,7 +142,9 @@ class CorporateAction(Base):
 class TechnicalIndicator(Base):
     __tablename__ = "technical_indicators"
     __table_args__ = (
-        PrimaryKeyConstraint("market", "symbol", "trading_date", "indicator_name", "params_hash", "calc_version"),
+        PrimaryKeyConstraint(
+            "market", "symbol", "trading_date", "indicator_name", "params_hash", "calc_version"
+        ),
     )
 
     market: Mapped[str] = mapped_column(String(16), nullable=False)
@@ -130,7 +155,9 @@ class TechnicalIndicator(Base):
     calc_version: Mapped[str] = mapped_column(String(64), nullable=False)
     value: Mapped[float] = mapped_column(Numeric(18, 8), nullable=False)
     source_field: Mapped[Optional[str]] = mapped_column(String(64))
-    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=datetime.utcnow)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=datetime.utcnow
+    )
 
 
 class ScanResult(Base):
@@ -145,7 +172,9 @@ class ScanResult(Base):
     score: Mapped[Optional[float]] = mapped_column(Numeric(18, 8))
     signals_json: Mapped[Optional[Dict[str, Any]]] = mapped_column(JSON)
     data_version: Mapped[Optional[str]] = mapped_column(String(64))
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=datetime.utcnow
+    )
 
 
 class JobRun(Base):
@@ -169,7 +198,9 @@ class TradingCalendar(Base):
     calendar_date: Mapped[date] = mapped_column(Date, nullable=False)
     is_trading_day: Mapped[bool] = mapped_column(Boolean, nullable=False)
     reason: Mapped[Optional[str]] = mapped_column(String(128))
-    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=datetime.utcnow)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=datetime.utcnow
+    )
 
 
 class Strategy(Base):
@@ -191,7 +222,9 @@ class DataQuarantine(Base):
     source_pk_or_batch: Mapped[str] = mapped_column(String(128), nullable=False)
     raw_payload_json: Mapped[Dict[str, Any]] = mapped_column(JSON, nullable=False)
     violated_rule: Mapped[str] = mapped_column(String(64), nullable=False)
-    detected_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=datetime.utcnow)
+    detected_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=datetime.utcnow
+    )
     resolution: Mapped[str] = mapped_column(String(32), nullable=False, default="pending")
     resolved_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
     notes: Mapped[Optional[str]] = mapped_column(Text)
@@ -207,7 +240,9 @@ class IntradayIndicator(Base):
     value: Mapped[float] = mapped_column(Numeric(18, 8), nullable=False)
     sample_size: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     last_updated_at: Mapped[date] = mapped_column(Date, nullable=False)
-    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=datetime.utcnow)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=datetime.utcnow
+    )
 
 
 class IntradayTrade(Base):
@@ -224,7 +259,9 @@ class IntradayTrade(Base):
     status: Mapped[str] = mapped_column(String(32), nullable=False, default="open")  # open, closed
     profit_loss: Mapped[Optional[float]] = mapped_column(Numeric(18, 4))
     notes: Mapped[Optional[str]] = mapped_column(Text)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=datetime.utcnow
+    )
 
 
 class IntradaySnapshot(Base):
@@ -237,11 +274,14 @@ class IntradaySnapshot(Base):
     snapshot_time: Mapped[str] = mapped_column(String(16), nullable=False)  # e.g., "12:00"
     cumulative_volume: Mapped[float] = mapped_column(Numeric(20, 0), nullable=False)
     last_price: Mapped[float] = mapped_column(Numeric(18, 4), nullable=False)
-    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=datetime.utcnow)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=datetime.utcnow
+    )
 
 
 class MinuteBar(Base):
     """五分鐘聚合 K 線，由 1m 原始資料聚合而成，用於精確回測進出場模擬。"""
+
     __tablename__ = "minute_bars"
     __table_args__ = (PrimaryKeyConstraint("market", "symbol", "trading_date", "bar_time"),)
 

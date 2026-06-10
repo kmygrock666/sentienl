@@ -10,6 +10,7 @@ from sqlalchemy import func
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session
 
+
 def _strategy_direction_map() -> dict[str, str]:
     """從 strategies.json 建立 strategy_id → direction 的對照表。"""
     cfg = _Path(__file__).parent.parent.parent / "config" / "strategies.json"
@@ -23,6 +24,7 @@ def _strategy_direction_map() -> dict[str, str]:
         return m
     except Exception:
         return {}
+
 
 _DIR_MAP: dict[str, str] = _strategy_direction_map()
 
@@ -39,12 +41,7 @@ from sentinel.models import (
 
 def get_latest_job_runs(engine: Engine, limit: int = 10) -> pd.DataFrame:
     with Session(engine) as s:
-        rows = (
-            s.query(JobRun)
-            .order_by(JobRun.start_time.desc())
-            .limit(limit)
-            .all()
-        )
+        rows = s.query(JobRun).order_by(JobRun.start_time.desc()).limit(limit).all()
     if not rows:
         return pd.DataFrame()
     return pd.DataFrame(
@@ -78,8 +75,10 @@ def get_data_freshness(engine: Engine) -> pd.DataFrame:
     if not rows:
         return pd.DataFrame()
     return pd.DataFrame(
-        [{"market": r.market, "latest_date": r.latest_date, "symbol_count": r.symbol_count}
-         for r in rows]
+        [
+            {"market": r.market, "latest_date": r.latest_date, "symbol_count": r.symbol_count}
+            for r in rows
+        ]
     )
 
 
@@ -106,7 +105,9 @@ def get_scan_results(
                 Stock.industry,
                 DailyPrice.close,
             )
-            .outerjoin(Stock, (Stock.market == ScanResult.market) & (Stock.symbol == ScanResult.symbol))
+            .outerjoin(
+                Stock, (Stock.market == ScanResult.market) & (Stock.symbol == ScanResult.symbol)
+            )
             .outerjoin(
                 DailyPrice,
                 (DailyPrice.market == ScanResult.market)
@@ -133,18 +134,20 @@ def get_scan_results(
     records = []
     for r in rows:
         sig = r.signals_json if isinstance(r.signals_json, dict) else {}
-        records.append({
-            "trading_date": r.trading_date,
-            "market": r.market,
-            "symbol": r.symbol,
-            "name": r.name or "",
-            "industry": r.industry or "",
-            "strategy_id": r.strategy_id,
-            "direction": sig.get("direction", "") or _DIR_MAP.get(r.strategy_id, ""),
-            "score": float(r.score) if r.score is not None else None,
-            "close": float(r.close) if r.close is not None else None,
-            "signals_json": r.signals_json,
-        })
+        records.append(
+            {
+                "trading_date": r.trading_date,
+                "market": r.market,
+                "symbol": r.symbol,
+                "name": r.name or "",
+                "industry": r.industry or "",
+                "strategy_id": r.strategy_id,
+                "direction": sig.get("direction", "") or _DIR_MAP.get(r.strategy_id, ""),
+                "score": float(r.score) if r.score is not None else None,
+                "close": float(r.close) if r.close is not None else None,
+                "signals_json": r.signals_json,
+            }
+        )
 
     return pd.DataFrame(records)
 
@@ -237,7 +240,16 @@ def get_indicators(
         )
     if not rows:
         return pd.DataFrame()
-    df = pd.DataFrame([{"trading_date": r.trading_date, "indicator_name": r.indicator_name, "value": float(r.value)} for r in rows])
+    df = pd.DataFrame(
+        [
+            {
+                "trading_date": r.trading_date,
+                "indicator_name": r.indicator_name,
+                "value": float(r.value),
+            }
+            for r in rows
+        ]
+    )
     return df.pivot(index="trading_date", columns="indicator_name", values="value").reset_index()
 
 
@@ -276,23 +288,22 @@ def get_quarantine_summary(engine: Engine) -> dict:
             .scalar()
             or 0
         )
-        recent = (
-            s.query(DataQuarantine)
-            .order_by(DataQuarantine.detected_at.desc())
-            .limit(10)
-            .all()
+        recent = s.query(DataQuarantine).order_by(DataQuarantine.detected_at.desc()).limit(10).all()
+    recent_df = (
+        pd.DataFrame(
+            [
+                {
+                    "detected_at": r.detected_at,
+                    "source_table": r.source_table,
+                    "violated_rule": r.violated_rule,
+                    "resolution": r.resolution,
+                }
+                for r in recent
+            ]
         )
-    recent_df = pd.DataFrame(
-        [
-            {
-                "detected_at": r.detected_at,
-                "source_table": r.source_table,
-                "violated_rule": r.violated_rule,
-                "resolution": r.resolution,
-            }
-            for r in recent
-        ]
-    ) if recent else pd.DataFrame()
+        if recent
+        else pd.DataFrame()
+    )
     return {"total": total, "pending": pending, "recent": recent_df}
 
 
@@ -300,7 +311,10 @@ def get_intraday_trades(engine: Engine, status: Optional[str] = None) -> pd.Data
     with Session(engine) as s:
         q = (
             s.query(IntradayTrade, Stock.name)
-            .outerjoin(Stock, (Stock.market == IntradayTrade.market) & (Stock.symbol == IntradayTrade.symbol))
+            .outerjoin(
+                Stock,
+                (Stock.market == IntradayTrade.market) & (Stock.symbol == IntradayTrade.symbol),
+            )
             .order_by(IntradayTrade.entry_date.desc(), IntradayTrade.trade_id.desc())
         )
         if status:
@@ -318,9 +332,17 @@ def get_intraday_trades(engine: Engine, status: Optional[str] = None) -> pd.Data
                 "進場日": r.IntradayTrade.entry_date,
                 "進場價": float(r.IntradayTrade.entry_price),
                 "出場日": r.IntradayTrade.exit_date,
-                "出場價": float(r.IntradayTrade.exit_price) if r.IntradayTrade.exit_price is not None else None,
+                "出場價": (
+                    float(r.IntradayTrade.exit_price)
+                    if r.IntradayTrade.exit_price is not None
+                    else None
+                ),
                 "狀態": r.IntradayTrade.status,
-                "損益": float(r.IntradayTrade.profit_loss) if r.IntradayTrade.profit_loss is not None else None,
+                "損益": (
+                    float(r.IntradayTrade.profit_loss)
+                    if r.IntradayTrade.profit_loss is not None
+                    else None
+                ),
                 "備註": r.IntradayTrade.notes or "",
             }
             for r in rows
@@ -355,7 +377,9 @@ def get_latest_scan_summary(engine: Engine) -> dict:
             .order_by(func.count().desc())
             .all()
         )
-    by_strategy_df = pd.DataFrame(
-        [{"strategy_id": r.strategy_id, "hits": r.hits} for r in by_strategy]
-    ) if by_strategy else pd.DataFrame()
+    by_strategy_df = (
+        pd.DataFrame([{"strategy_id": r.strategy_id, "hits": r.hits} for r in by_strategy])
+        if by_strategy
+        else pd.DataFrame()
+    )
     return {"latest_date": latest_date, "total_hits": total, "by_strategy": by_strategy_df}

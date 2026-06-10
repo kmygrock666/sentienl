@@ -23,7 +23,9 @@ class Settings(BaseSettings):
     retry_jitter_seconds: float = Field(default=0.25, ge=0)
     min_delay_seconds: float = Field(default=0.2, ge=0)
     max_delay_seconds: float = Field(default=0.8, ge=0)
-    user_agent: str = Field(default="Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:132.0) Gecko/20100101 Firefox/132.0")
+    user_agent: str = Field(
+        default="Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:132.0) Gecko/20100101 Firefox/132.0"
+    )
     data_version: str = Field(default="v1")
     log_level: str = Field(default="INFO")
     database_url: Optional[str] = Field(default=None)
@@ -34,8 +36,12 @@ class Settings(BaseSettings):
     tpex_holiday_url_template: str = Field(
         default="https://www.tpex.org.tw/storage/en-us/web/bulletin/trading_date/trading_date_{roc_year}.htm"
     )
-    twse_stock_master_url: Optional[str] = Field(default="https://isin.twse.com.tw/isin/C_public.jsp?strMode=2")
-    tpex_stock_master_url: Optional[str] = Field(default="https://isin.twse.com.tw/isin/C_public.jsp?strMode=4")
+    twse_stock_master_url: Optional[str] = Field(
+        default="https://isin.twse.com.tw/isin/C_public.jsp?strMode=2"
+    )
+    tpex_stock_master_url: Optional[str] = Field(
+        default="https://isin.twse.com.tw/isin/C_public.jsp?strMode=4"
+    )
     tg_token: Optional[str] = Field(default=None)
     tg_chat_id: Optional[str] = Field(default=None)
     indicator_cache_dir: Optional[Path] = Field(default=None)

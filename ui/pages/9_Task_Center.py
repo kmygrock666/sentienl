@@ -1,4 +1,5 @@
 """Task Center — 全域任務佇列：執行中 / 成功 / 失敗 / 全部。"""
+
 from __future__ import annotations
 
 import pathlib
@@ -29,6 +30,7 @@ filter_status = ctrl2.selectbox(
     "篩選狀態", ["全部", "running", "success", "failed", "pending"], index=0
 )
 
+
 # ── 執行中任務自動輪詢（每 3 秒刷新 fragment）─────────────────────────────
 @st.fragment(run_every=3)
 def _auto_poll() -> None:
@@ -37,6 +39,7 @@ def _auto_poll() -> None:
     if running:
         names = "、".join(t.command_id for t in running[:4])
         st.info(f"🔄 自動輪詢中 — {len(running)} 個任務執行中：{names}")
+
 
 _auto_poll()
 
@@ -57,7 +60,9 @@ m4.metric("🔴 失敗", failed_cnt)
 st.divider()
 
 # ── 任務列表 ───────────────────────────────────────────────────────────────
-tasks = all_tasks if filter_status == "全部" else [t for t in all_tasks if t.status == filter_status]
+tasks = (
+    all_tasks if filter_status == "全部" else [t for t in all_tasks if t.status == filter_status]
+)
 
 _RESULT_PAGES = {
     "run": "pages/3_Daily_Scan.py",
@@ -79,7 +84,9 @@ else:
         with col_action:
             if task.status in ("success", "failed"):
                 action_col1, action_col2 = st.columns(2)
-                if action_col1.button("重跑", key=f"rerun_{task.task_id}", use_container_width=True):
+                if action_col1.button(
+                    "重跑", key=f"rerun_{task.task_id}", use_container_width=True
+                ):
                     new_task = rerun_task(task)
                     st.success(f"已重跑 → #{new_task.task_id}")
                     st.rerun()

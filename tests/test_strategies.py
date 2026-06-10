@@ -58,7 +58,11 @@ def test_scan_strategies_returns_multiple_strategy_results() -> None:
 def test_run_backtest_generates_report_and_trades() -> None:
     prices = build_strategy_prices(days=50)
     enriched = compute_indicators(prices)
-    strategies = [strategy for strategy in load_strategy_definitions() if strategy["strategy_id"] == "mvp_ma_crossover"]
+    strategies = [
+        strategy
+        for strategy in load_strategy_definitions()
+        if strategy["strategy_id"] == "mvp_ma_crossover"
+    ]
 
     reports, trades = run_backtest(
         prices_with_indicators=enriched,

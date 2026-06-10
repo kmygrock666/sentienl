@@ -1,10 +1,10 @@
 from __future__ import annotations
 
+import re
+import subprocess
 from abc import ABC, abstractmethod
 from datetime import date
 from pathlib import Path
-import re
-import subprocess
 from typing import Dict, Iterable, List, Optional, Sequence
 
 import pandas as pd
@@ -53,8 +53,12 @@ class OfficialTradingCalendarProvider(ABC):
         filtered["exchange"] = self.exchange
         return filtered[OFFICIAL_CALENDAR_COLUMNS]
 
-    def fetch_year(self, year: int, settings: Settings, source_mode: str = SOURCE_MODE_AUTO) -> pd.DataFrame:
-        cache_path = settings.raw_dir / "trading_calendar" / "{0}_{1}.csv".format(self.cache_prefix, year)
+    def fetch_year(
+        self, year: int, settings: Settings, source_mode: str = SOURCE_MODE_AUTO
+    ) -> pd.DataFrame:
+        cache_path = (
+            settings.raw_dir / "trading_calendar" / "{0}_{1}.csv".format(self.cache_prefix, year)
+        )
         if cache_path.exists():
             frame = pd.read_csv(cache_path)
             if frame.empty:
@@ -114,7 +118,12 @@ class OfficialTradingCalendarProvider(ABC):
         raise NotImplementedError
 
     def fixture_path(self, year: int, settings: Settings) -> Path:
-        return settings.raw_dir / "fixtures" / "trading_calendar" / "{0}_{1}.html".format(self.cache_prefix, year)
+        return (
+            settings.raw_dir
+            / "fixtures"
+            / "trading_calendar"
+            / "{0}_{1}.html".format(self.cache_prefix, year)
+        )
 
     def _load_fixture_payload(self, year: int, settings: Settings) -> Optional[str]:
         fixture_path = self.fixture_path(year=year, settings=settings)
@@ -163,7 +172,11 @@ def fetch_official_trading_calendar(
         if provider is None:
             logger.info(
                 "official_calendar_provider_missing",
-                extra={"exchange": exchange, "start_date": start_date.isoformat(), "end_date": end_date.isoformat()},
+                extra={
+                    "exchange": exchange,
+                    "start_date": start_date.isoformat(),
+                    "end_date": end_date.isoformat(),
+                },
             )
             continue
         market_frame = provider.fetch_range(
@@ -189,10 +202,14 @@ def fetch_official_trading_calendar(
 def build_official_calendar_provider_registry(
     providers: Optional[Sequence[OfficialTradingCalendarProvider]] = None,
 ) -> Dict[str, OfficialTradingCalendarProvider]:
-    active_providers = list(providers) if providers is not None else [
-        TwseOfficialTradingCalendarProvider(),
-        TpexOfficialTradingCalendarProvider(),
-    ]
+    active_providers = (
+        list(providers)
+        if providers is not None
+        else [
+            TwseOfficialTradingCalendarProvider(),
+            TpexOfficialTradingCalendarProvider(),
+        ]
+    )
     return {provider.exchange: provider for provider in active_providers}
 
 
@@ -246,7 +263,7 @@ def _parse_generic_holiday_html(
 
     header = rows[header_index]
     data_rows = []
-    for row in rows[header_index + 1:]:
+    for row in rows[header_index + 1 :]:
         if len(row) < len(header):
             row = row + ([""] * (len(header) - len(row)))
         elif len(row) > len(header):
@@ -296,7 +313,9 @@ def _find_column(columns: List[str], candidates: List[str]) -> str:
     raise ValueError("Required column not found: {0}".format(", ".join(candidates)))
 
 
-def _find_header_row_index(rows: List[List[str]], column_candidates: List[List[str]]) -> Optional[int]:
+def _find_header_row_index(
+    rows: List[List[str]], column_candidates: List[List[str]]
+) -> Optional[int]:
     for index, row in enumerate(rows):
         normalized_row = [_normalize_column_name(cell) for cell in row]
         matched_all = True
@@ -365,12 +384,7 @@ def _extract_html_rows(payload: str) -> List[List[str]]:
         for cell in cells:
             text = re.sub(r"<br\s*/?>", " ", cell, flags=re.IGNORECASE)
             text = re.sub(r"<[^>]+>", "", text)
-            text = (
-                text.replace("&nbsp;", " ")
-                .replace("&#160;", " ")
-                .replace("&amp;", "&")
-                .strip()
-            )
+            text = text.replace("&nbsp;", " ").replace("&#160;", " ").replace("&amp;", "&").strip()
             normalized_cells.append(text)
         rows.append(normalized_cells)
     return rows
@@ -379,5 +393,7 @@ def _extract_html_rows(payload: str) -> List[List[str]]:
 def _save_provider_cache(cache_path: Path, frame: pd.DataFrame) -> None:
     cache_path.parent.mkdir(parents=True, exist_ok=True)
     export_frame = frame.copy()
-    export_frame["calendar_date"] = pd.to_datetime(export_frame["calendar_date"]).dt.strftime("%Y-%m-%d")
+    export_frame["calendar_date"] = pd.to_datetime(export_frame["calendar_date"]).dt.strftime(
+        "%Y-%m-%d"
+    )
     export_frame.to_csv(cache_path, index=False, encoding="utf-8")

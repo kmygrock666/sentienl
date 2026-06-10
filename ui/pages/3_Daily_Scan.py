@@ -2,6 +2,7 @@
 
 功能：run pipeline，查詢 scan_results，TradingView 匯出
 """
+
 from __future__ import annotations
 
 import pathlib
@@ -63,7 +64,9 @@ with st.form("run_form"):
         ec4, ec5 = st.columns(2)
         skip_indicators = ec4.checkbox("跳過技術指標計算")
         skip_strategies = ec5.checkbox("跳過策略掃描")
-        strategy_path = st.text_input("策略設定檔路徑（留空=預設）", placeholder="config/strategies.json")
+        strategy_path = st.text_input(
+            "策略設定檔路徑（留空=預設）", placeholder="config/strategies.json"
+        )
 
     # Command Preview
     params: dict = {
@@ -103,8 +106,7 @@ if submitted:
 if "last_run_task" in st.session_state:
     task = poll_task(st.session_state["last_run_task"])
     st.markdown(
-        status_badge_html(task.status)
-        + f" Task `{task.task_id}` · 耗時 {task.duration_str}",
+        status_badge_html(task.status) + f" Task `{task.task_id}` · 耗時 {task.duration_str}",
         unsafe_allow_html=True,
     )
     if task.stdout_tail or task.stderr_tail:

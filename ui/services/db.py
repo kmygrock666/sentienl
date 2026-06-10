@@ -1,7 +1,8 @@
 from __future__ import annotations
 
 import streamlit as st
-from sqlalchemy import inspect as sa_inspect, text
+from sqlalchemy import inspect as sa_inspect
+from sqlalchemy import text
 from sqlalchemy.engine import Engine
 
 from sentinel.config import Settings
@@ -17,13 +18,17 @@ def _reset_stale_jobs(engine: Engine) -> None:
     下次啟動時由此函式修復，避免 UI 顯示不存在的「執行中」任務。
     """
     with engine.begin() as conn:
-        conn.execute(text("""
+        conn.execute(
+            text(
+                """
             UPDATE job_runs
             SET status      = 'failed',
                 end_time    = start_time,
                 error_summary = 'Interrupted: process killed before completion'
             WHERE status = 'running'
-        """))
+        """
+            )
+        )
 
 
 @st.cache_resource

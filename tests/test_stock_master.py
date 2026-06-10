@@ -226,7 +226,9 @@ def test_twse_stock_master_provider_network_decodes_cp950_html(monkeypatch) -> N
       <tr><td colspan="7"><b> 股票 </b></td></tr>
       <tr><td>2330　台積電</td><td>TW0002330008</td><td>1994/09/05</td><td>上市</td><td>半導體業</td><td>ESVUFR</td><td></td></tr>
     </table>
-    """.encode("cp950")
+    """.encode(
+        "cp950"
+    )
 
     class FakeResponse:
         content = payload

@@ -7,7 +7,6 @@ from typing import Any, Dict, Iterable, Optional
 
 import pandas as pd
 
-
 DEFAULT_STRATEGY_DEFINITIONS = [
     {
         "strategy_id": "mvp_ma_crossover",
@@ -48,8 +47,19 @@ DEFAULT_STRATEGY_DEFINITIONS = [
         "params_json": {
             "min_history_days": 25,
             "conditions": [
-                {"name": "close_gt_bb_upper_20", "field": "close", "operator": ">", "target": "bb_upper_20"},
-                {"name": "volume_gt_2x_volume_ma5", "field": "volume", "operator": ">", "target": "volume_ma5", "multiplier": 2.0},
+                {
+                    "name": "close_gt_bb_upper_20",
+                    "field": "close",
+                    "operator": ">",
+                    "target": "bb_upper_20",
+                },
+                {
+                    "name": "volume_gt_2x_volume_ma5",
+                    "field": "volume",
+                    "operator": ">",
+                    "target": "volume_ma5",
+                    "multiplier": 2.0,
+                },
             ],
         },
         "backtest": {"holding_period_days": 3, "execution_model_version": "next_open_to_close"},
@@ -141,10 +151,8 @@ def scan_strategies(
         for cond in multi_conds:
             cons_days = int(cond["consecutive_days"])
             bool_full = _eval_condition_vectorized(frame, cond).astype(float)
-            rolling_min = (
-                bool_full
-                .groupby([frame["market"], frame["symbol"]])
-                .transform(lambda x, w=cons_days: x.rolling(window=w, min_periods=w).min())
+            rolling_min = bool_full.groupby([frame["market"], frame["symbol"]]).transform(
+                lambda x, w=cons_days: x.rolling(window=w, min_periods=w).min()
             )
             today_rolling = rolling_min.loc[frame["trading_date"] == trading_date]
             mask = today_rolling.reindex(candidates.index).fillna(0.0) >= 1.0
@@ -171,8 +179,7 @@ def scan_strategies(
                 .reset_index(name="_cnt")
             )
             candidates = (
-                candidates
-                .merge(sym_counts, on=["market", "symbol"], how="left")
+                candidates.merge(sym_counts, on=["market", "symbol"], how="left")
                 .pipe(lambda d: d[d["_cnt"].fillna(0) >= min_history_days])
                 .drop(columns=["_cnt"])
             )
@@ -202,10 +209,15 @@ def scan_strategies(
     if not results:
         return pd.DataFrame(columns=_scan_result_columns())
 
-    return pd.DataFrame(results).sort_values(["strategy_id", "market", "symbol"]).reset_index(drop=True)
+    return (
+        pd.DataFrame(results)
+        .sort_values(["strategy_id", "market", "symbol"])
+        .reset_index(drop=True)
+    )
 
 
 # ── 向量化條件評估 ────────────────────────────────────────────────────────────
+
 
 def _eval_condition_vectorized(df: pd.DataFrame, condition: Dict[str, Any]) -> pd.Series:
     """對 DataFrame 向量化評估單一條件，回傳 bool Series。NaN 比較視為 False。"""
@@ -283,20 +295,25 @@ def _build_condition_result_from_row(row: pd.Series, condition: Dict[str, Any]) 
 
 # ── 原有輔助函式（保留供測試及 backtest 呼叫）────────────────────────────────
 
+
 def _evaluate_condition(
     symbol_history: pd.DataFrame, row_index: int, condition: Dict[str, Any]
 ) -> Dict[str, Any]:
     consecutive_days = max(int(condition.get("consecutive_days", 1)), 1)
     start_index = row_index - consecutive_days + 1
     if start_index < 0:
-        return _build_condition_result(condition=condition, passed=False, value=None, reference=None)
+        return _build_condition_result(
+            condition=condition, passed=False, value=None, reference=None
+        )
 
     evaluations = []
     for current_index in range(start_index, row_index + 1):
         current_row = symbol_history.iloc[current_index]
         left_value = _extract_value(current_row=current_row, key=condition["field"])
         reference_value = _resolve_reference(current_row=current_row, condition=condition)
-        passed = _compare_values(left_value=left_value, operator=condition["operator"], right_value=reference_value)
+        passed = _compare_values(
+            left_value=left_value, operator=condition["operator"], right_value=reference_value
+        )
         evaluations.append((passed, left_value, reference_value))
 
     final_passed, final_value, final_reference = evaluations[-1]
@@ -381,12 +398,17 @@ def _build_condition_result(
 ) -> Dict[str, Any]:
     target = condition.get("target", condition.get("value"))
     return {
-        "name": condition.get("name") or "{0}_{1}_{2}".format(condition["field"], condition["operator"], target),
+        "name": condition.get("name")
+        or "{0}_{1}_{2}".format(condition["field"], condition["operator"], target),
         "field": condition["field"],
         "operator": condition["operator"],
         "passed": bool(passed),
         "value": _to_float(value),
-        "reference": _to_float(reference) if isinstance(reference, (int, float)) or not pd.isna(reference) else None,
+        "reference": (
+            _to_float(reference)
+            if isinstance(reference, (int, float)) or not pd.isna(reference)
+            else None
+        ),
         "target": target,
     }
 

@@ -1,4 +1,5 @@
 """日誌檢視元件：顯示任務輸出尾端與狀態卡片。"""
+
 from __future__ import annotations
 
 import streamlit as st

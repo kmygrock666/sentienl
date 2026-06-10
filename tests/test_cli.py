@@ -1,14 +1,21 @@
 from __future__ import annotations
 
-from pathlib import Path
 import json
+from pathlib import Path
 
 import pandas as pd
 from sqlalchemy.orm import Session
 
 from sentinel.cli import main
 from sentinel.db import create_db_engine
-from sentinel.models import DataQuarantine, DailyPrice, ScanResult, Stock, TechnicalIndicator, TradingCalendar
+from sentinel.models import (
+    DailyPrice,
+    DataQuarantine,
+    ScanResult,
+    Stock,
+    TechnicalIndicator,
+    TradingCalendar,
+)
 
 
 def test_sync_calendar_fixture_mode_writes_outputs_and_db(tmp_path, monkeypatch) -> None:
@@ -59,7 +66,11 @@ def test_sync_calendar_fixture_mode_writes_outputs_and_db(tmp_path, monkeypatch)
 
     engine = create_db_engine(database_url)
     with Session(engine) as session:
-        rows = session.query(TradingCalendar).order_by(TradingCalendar.exchange, TradingCalendar.calendar_date).all()
+        rows = (
+            session.query(TradingCalendar)
+            .order_by(TradingCalendar.exchange, TradingCalendar.calendar_date)
+            .all()
+        )
         assert len(rows) == 12
         twse_rows = [row for row in rows if row.exchange == "TWSE"]
         tpex_rows = [row for row in rows if row.exchange == "TPEX"]
@@ -159,7 +170,9 @@ def test_run_fixture_mode_writes_scan_outputs_and_db(tmp_path, monkeypatch) -> N
                 "symbol": "2330",
                 "name": "台積電",
                 "market": "TWSE",
-                "trading_date": "2025-12-{0:02d}".format(offset + 1) if offset < 31 else "2026-01-01",
+                "trading_date": (
+                    "2025-12-{0:02d}".format(offset + 1) if offset < 31 else "2026-01-01"
+                ),
                 "open": 580.0 + offset,
                 "high": 581.0 + offset,
                 "low": 579.0 + offset,
@@ -169,7 +182,9 @@ def test_run_fixture_mode_writes_scan_outputs_and_db(tmp_path, monkeypatch) -> N
                 "source": "fixture-history",
             }
         )
-    pd.DataFrame(historical_rows).to_csv(processed_dir / "daily_prices.csv", index=False, encoding="utf-8")
+    pd.DataFrame(historical_rows).to_csv(
+        processed_dir / "daily_prices.csv", index=False, encoding="utf-8"
+    )
 
     database_path = tmp_path / "run.db"
     database_url = "sqlite:///{0}".format(database_path)
@@ -178,7 +193,20 @@ def test_run_fixture_mode_writes_scan_outputs_and_db(tmp_path, monkeypatch) -> N
     monkeypatch.setenv("TS_DATABASE_URL", database_url)
 
     assert main(["init-db", "--database-url", database_url]) == 0
-    assert main(["sync-stocks", "--market", "TWSE", "--source-mode", "fixture", "--database-url", database_url]) == 0
+    assert (
+        main(
+            [
+                "sync-stocks",
+                "--market",
+                "TWSE",
+                "--source-mode",
+                "fixture",
+                "--database-url",
+                database_url,
+            ]
+        )
+        == 0
+    )
     assert (
         main(
             [
@@ -254,7 +282,20 @@ def test_run_quarantines_invalid_daily_prices(tmp_path, monkeypatch) -> None:
     monkeypatch.setenv("TS_DATABASE_URL", database_url)
 
     assert main(["init-db", "--database-url", database_url]) == 0
-    assert main(["sync-stocks", "--market", "TWSE", "--source-mode", "fixture", "--database-url", database_url]) == 0
+    assert (
+        main(
+            [
+                "sync-stocks",
+                "--market",
+                "TWSE",
+                "--source-mode",
+                "fixture",
+                "--database-url",
+                database_url,
+            ]
+        )
+        == 0
+    )
     assert (
         main(
             [
@@ -319,7 +360,9 @@ def test_backtest_writes_report_and_trades(tmp_path, monkeypatch) -> None:
                 "source": "fixture-history",
             }
         )
-    pd.DataFrame(historical_rows).to_csv(processed_dir / "daily_prices.csv", index=False, encoding="utf-8")
+    pd.DataFrame(historical_rows).to_csv(
+        processed_dir / "daily_prices.csv", index=False, encoding="utf-8"
+    )
 
     database_path = tmp_path / "backtest.db"
     database_url = "sqlite:///{0}".format(database_path)

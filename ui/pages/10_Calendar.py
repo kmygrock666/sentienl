@@ -2,6 +2,7 @@
 
 事件涵蓋：台指期結算、四巫日、FOMC、美國 CPI / NFP / PCE。
 """
+
 from __future__ import annotations
 
 import calendar as _cal
@@ -24,16 +25,16 @@ inject_css()
 
 CATEGORY_CFG: dict[str, dict] = {
     "tw_futures": {"label": "台指期月結算", "icon": "🇹🇼", "color": "#3b82f6"},
-    "witching":   {"label": "四巫日",        "icon": "🎭", "color": "#8b5cf6"},
-    "fomc":       {"label": "FOMC 利率決議", "icon": "🏛️", "color": "#ef4444"},
-    "ecb":        {"label": "ECB 利率決議",  "icon": "🇪🇺", "color": "#6366f1"},
-    "boj":        {"label": "日銀利率決議",  "icon": "🏯",  "color": "#f43f5e"},
-    "us_cpi":     {"label": "美國 CPI",      "icon": "📊", "color": "#f59e0b"},
-    "us_nfp":     {"label": "美國 NFP",      "icon": "📈", "color": "#10b981"},
-    "us_pce":     {"label": "美國 PCE",      "icon": "📉", "color": "#f97316"},
-    "us_gdp":     {"label": "美國 GDP",      "icon": "🏗️",  "color": "#14b8a6"},
-    "msci":       {"label": "MSCI 再平衡",   "icon": "📐",  "color": "#64748b"},
-    "global":     {"label": "全球重大事件",  "icon": "🌐",  "color": "#a855f7"},
+    "witching": {"label": "四巫日", "icon": "🎭", "color": "#8b5cf6"},
+    "fomc": {"label": "FOMC 利率決議", "icon": "🏛️", "color": "#ef4444"},
+    "ecb": {"label": "ECB 利率決議", "icon": "🇪🇺", "color": "#6366f1"},
+    "boj": {"label": "日銀利率決議", "icon": "🏯", "color": "#f43f5e"},
+    "us_cpi": {"label": "美國 CPI", "icon": "📊", "color": "#f59e0b"},
+    "us_nfp": {"label": "美國 NFP", "icon": "📈", "color": "#10b981"},
+    "us_pce": {"label": "美國 PCE", "icon": "📉", "color": "#f97316"},
+    "us_gdp": {"label": "美國 GDP", "icon": "🏗️", "color": "#14b8a6"},
+    "msci": {"label": "MSCI 再平衡", "icon": "📐", "color": "#64748b"},
+    "global": {"label": "全球重大事件", "icon": "🌐", "color": "#a855f7"},
 }
 
 
@@ -58,44 +59,90 @@ def _last_weekday(year: int, month: int, weekday: int) -> date:
 
 # FOMC 2025 actual + 2026 estimated
 _FOMC: list[tuple[date, str]] = [
-    (date(2025, 1, 29), ""), (date(2025, 3, 19), ""), (date(2025, 5,  7), ""),
-    (date(2025, 6, 18), ""), (date(2025, 7, 30), ""), (date(2025, 9, 17), ""),
-    (date(2025, 10, 29), ""), (date(2025, 12, 10), ""),
-    (date(2026, 1, 29), "預估"), (date(2026, 3, 18), "預估"), (date(2026, 5,  7), "預估"),
-    (date(2026, 6, 18), "預估"), (date(2026, 7, 30), "預估"), (date(2026, 9, 17), "預估"),
-    (date(2026, 10, 29), "預估"), (date(2026, 12, 10), "預估"),
+    (date(2025, 1, 29), ""),
+    (date(2025, 3, 19), ""),
+    (date(2025, 5, 7), ""),
+    (date(2025, 6, 18), ""),
+    (date(2025, 7, 30), ""),
+    (date(2025, 9, 17), ""),
+    (date(2025, 10, 29), ""),
+    (date(2025, 12, 10), ""),
+    (date(2026, 1, 29), "預估"),
+    (date(2026, 3, 18), "預估"),
+    (date(2026, 5, 7), "預估"),
+    (date(2026, 6, 18), "預估"),
+    (date(2026, 7, 30), "預估"),
+    (date(2026, 9, 17), "預估"),
+    (date(2026, 10, 29), "預估"),
+    (date(2026, 12, 10), "預估"),
 ]
 
 # CPI 2025 actual BLS + 2026 approximate
 _US_CPI: list[tuple[date, str]] = [
-    (date(2025, 1, 15), ""), (date(2025, 2, 12), ""), (date(2025, 3, 12), ""),
-    (date(2025, 4, 10), ""), (date(2025, 5, 13), ""), (date(2025, 6, 11), ""),
-    (date(2025, 7, 15), ""), (date(2025, 8, 12), ""), (date(2025, 9, 10), ""),
-    (date(2025, 10, 15), ""), (date(2025, 11, 13), ""), (date(2025, 12, 10), ""),
-    (date(2026, 1, 14), "預估"), (date(2026, 2, 11), "預估"), (date(2026, 3, 11), "預估"),
-    (date(2026, 4, 10), "預估"), (date(2026, 5, 13), "預估"), (date(2026, 6, 10), "預估"),
-    (date(2026, 7, 15), "預估"), (date(2026, 8, 12), "預估"), (date(2026, 9, 10), "預估"),
-    (date(2026, 10, 14), "預估"), (date(2026, 11, 12), "預估"), (date(2026, 12, 10), "預估"),
+    (date(2025, 1, 15), ""),
+    (date(2025, 2, 12), ""),
+    (date(2025, 3, 12), ""),
+    (date(2025, 4, 10), ""),
+    (date(2025, 5, 13), ""),
+    (date(2025, 6, 11), ""),
+    (date(2025, 7, 15), ""),
+    (date(2025, 8, 12), ""),
+    (date(2025, 9, 10), ""),
+    (date(2025, 10, 15), ""),
+    (date(2025, 11, 13), ""),
+    (date(2025, 12, 10), ""),
+    (date(2026, 1, 14), "預估"),
+    (date(2026, 2, 11), "預估"),
+    (date(2026, 3, 11), "預估"),
+    (date(2026, 4, 10), "預估"),
+    (date(2026, 5, 13), "預估"),
+    (date(2026, 6, 10), "預估"),
+    (date(2026, 7, 15), "預估"),
+    (date(2026, 8, 12), "預估"),
+    (date(2026, 9, 10), "預估"),
+    (date(2026, 10, 14), "預估"),
+    (date(2026, 11, 12), "預估"),
+    (date(2026, 12, 10), "預估"),
 ]
 
 # ECB 2025 actual + 2026 estimated (8 meetings/year, Thursdays)
 _ECB: list[tuple[date, str]] = [
-    (date(2025, 1, 30), ""), (date(2025, 3, 6), ""),  (date(2025, 4, 17), ""),
-    (date(2025, 6, 5), ""),  (date(2025, 7, 24), ""), (date(2025, 9, 11), ""),
-    (date(2025, 10, 30), ""), (date(2025, 12, 18), ""),
-    (date(2026, 1, 29), "預估"), (date(2026, 3, 5), "預估"),  (date(2026, 4, 23), "預估"),
-    (date(2026, 6, 4), "預估"),  (date(2026, 7, 23), "預估"), (date(2026, 9, 10), "預估"),
-    (date(2026, 10, 29), "預估"), (date(2026, 12, 17), "預估"),
+    (date(2025, 1, 30), ""),
+    (date(2025, 3, 6), ""),
+    (date(2025, 4, 17), ""),
+    (date(2025, 6, 5), ""),
+    (date(2025, 7, 24), ""),
+    (date(2025, 9, 11), ""),
+    (date(2025, 10, 30), ""),
+    (date(2025, 12, 18), ""),
+    (date(2026, 1, 29), "預估"),
+    (date(2026, 3, 5), "預估"),
+    (date(2026, 4, 23), "預估"),
+    (date(2026, 6, 4), "預估"),
+    (date(2026, 7, 23), "預估"),
+    (date(2026, 9, 10), "預估"),
+    (date(2026, 10, 29), "預估"),
+    (date(2026, 12, 17), "預估"),
 ]
 
 # BOJ 2025 actual + 2026 estimated (8 meetings/year)
 _BOJ: list[tuple[date, str]] = [
-    (date(2025, 1, 24), ""), (date(2025, 3, 19), ""), (date(2025, 5, 1), ""),
-    (date(2025, 6, 17), ""), (date(2025, 7, 31), ""), (date(2025, 9, 19), ""),
-    (date(2025, 10, 29), ""), (date(2025, 12, 19), ""),
-    (date(2026, 1, 23), "預估"), (date(2026, 3, 18), "預估"), (date(2026, 4, 30), "預估"),
-    (date(2026, 6, 16), "預估"), (date(2026, 7, 30), "預估"), (date(2026, 9, 17), "預估"),
-    (date(2026, 10, 28), "預估"), (date(2026, 12, 17), "預估"),
+    (date(2025, 1, 24), ""),
+    (date(2025, 3, 19), ""),
+    (date(2025, 5, 1), ""),
+    (date(2025, 6, 17), ""),
+    (date(2025, 7, 31), ""),
+    (date(2025, 9, 19), ""),
+    (date(2025, 10, 29), ""),
+    (date(2025, 12, 19), ""),
+    (date(2026, 1, 23), "預估"),
+    (date(2026, 3, 18), "預估"),
+    (date(2026, 4, 30), "預估"),
+    (date(2026, 6, 16), "預估"),
+    (date(2026, 7, 30), "預估"),
+    (date(2026, 9, 17), "預估"),
+    (date(2026, 10, 28), "預估"),
+    (date(2026, 12, 17), "預估"),
 ]
 
 # US GDP advance estimate (quarterly, BEA — last week of Jan/Apr/Jul/Oct)
@@ -229,7 +276,7 @@ def _render_calendar_html(
             if is_today:
                 num_html = (
                     f'<span style="display:inline-flex;align-items:center;justify-content:center;'
-                    f'width:24px;height:24px;background:#3b82f6;border-radius:50%;'
+                    f"width:24px;height:24px;background:#3b82f6;border-radius:50%;"
                     f'font-size:0.8rem;font-weight:700;color:#fff">{day}</span>'
                 )
             else:
@@ -240,7 +287,11 @@ def _render_calendar_html(
             badges = []
             for ev in day_events:
                 cfg = CATEGORY_CFG[ev.category]
-                note_part = f' <span style="opacity:0.65;font-size:0.62rem">({ev.note})</span>' if ev.note else ""
+                note_part = (
+                    f' <span style="opacity:0.65;font-size:0.62rem">({ev.note})</span>'
+                    if ev.note
+                    else ""
+                )
                 badges.append(
                     f'<div title="{ev.name}{" ("+ev.note+")" if ev.note else ""}" '
                     f'style="margin-top:3px;padding:2px 5px;border-radius:3px;'
@@ -319,14 +370,26 @@ with st.sidebar:
 # ── 導航列 ─────────────────────────────────────────────────────────────────
 cur_year: int = st.session_state["cal_year"]
 cur_month: int = st.session_state["cal_month"]
-month_names = ["一月","二月","三月","四月","五月","六月",
-               "七月","八月","九月","十月","十一月","十二月"]
+month_names = [
+    "一月",
+    "二月",
+    "三月",
+    "四月",
+    "五月",
+    "六月",
+    "七月",
+    "八月",
+    "九月",
+    "十月",
+    "十一月",
+    "十二月",
+]
 
 nav_l, nav_title, nav_r = st.columns([1, 6, 1])
 nav_l.button("◀", on_click=_prev_month, use_container_width=True, key="btn_prev")
 nav_title.markdown(
     f'<h2 style="text-align:center;margin:0;padding:6px 0;font-size:1.4rem">'
-    f'{cur_year} 年 {month_names[cur_month-1]}</h2>',
+    f"{cur_year} 年 {month_names[cur_month-1]}</h2>",
     unsafe_allow_html=True,
 )
 nav_r.button("▶", on_click=_next_month, use_container_width=True, key="btn_next")
@@ -335,7 +398,7 @@ nav_r.button("▶", on_click=_next_month, use_container_width=True, key="btn_nex
 _leg_items = list(CATEGORY_CFG.items())
 _LEG_COLS = 6
 for row_start in range(0, len(_leg_items), _LEG_COLS):
-    row_items = _leg_items[row_start: row_start + _LEG_COLS]
+    row_items = _leg_items[row_start : row_start + _LEG_COLS]
     leg_cols = st.columns(_LEG_COLS)
     for i, (cat, cfg) in enumerate(row_items):
         leg_cols[i].markdown(

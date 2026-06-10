@@ -1,7 +1,9 @@
 """測試 CommandSpec 的 argv 組裝與驗證邏輯。"""
+
 from __future__ import annotations
 
 import sys
+
 import pytest
 
 
@@ -78,7 +80,10 @@ def test_argv_to_preview_quoting() -> None:
 
     argv = ["python", "-m", "sentinel", "--strategy-path", "/path/with space/strategies.json"]
     preview = argv_to_preview(argv)
-    assert "'/path/with space/strategies.json'" in preview or '"/path/with space/strategies.json"' in preview
+    assert (
+        "'/path/with space/strategies.json'" in preview
+        or '"/path/with space/strategies.json"' in preview
+    )
 
 
 def test_validate_date_range_valid() -> None:

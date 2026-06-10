@@ -2,6 +2,7 @@
 
 功能：init-db, sync-calendar, sync-stocks, sync, backfill-yahoo
 """
+
 from __future__ import annotations
 
 import pathlib
@@ -15,7 +16,13 @@ from ui.components.command_preview import render_command_preview
 from ui.components.form_factory import render_form
 from ui.components.layout import inject_css, section_header, status_badge_html
 from ui.components.log_viewer import render_log_tail
-from ui.services.command_runner import find_running_task, get_store, launch_task, poll_all_running, poll_task
+from ui.services.command_runner import (
+    find_running_task,
+    get_store,
+    launch_task,
+    poll_all_running,
+    poll_task,
+)
 from ui.services.command_specs import (
     BACKFILL_YAHOO,
     INIT_DB,
@@ -72,7 +79,9 @@ def _run_section(spec, section_key: str) -> None:
                 return
         running = find_running_task(spec.command_id)
         if running:
-            st.warning(f"⚠️ {spec.command_id} 已在執行中（#{running.task_id}），請至 [Task Center](/9_Task_Center) 查看")
+            st.warning(
+                f"⚠️ {spec.command_id} 已在執行中（#{running.task_id}），請至 [Task Center](/9_Task_Center) 查看"
+            )
             return
         task = launch_task(spec, params)
         st.session_state[f"task_{section_key}"] = task.task_id
@@ -88,10 +97,10 @@ def _run_section(spec, section_key: str) -> None:
 
 # ── 各指令區塊 ─────────────────────────────────────────────────────────────
 SECTIONS = [
-    ("初始化資料庫",        INIT_DB,        "init_db"),
-    ("行事曆同步",          SYNC_CALENDAR,  "sync_cal"),
-    ("股票主檔同步",        SYNC_STOCKS,    "sync_stocks"),
-    ("自動補齊股價",        SYNC,           "sync"),
+    ("初始化資料庫", INIT_DB, "init_db"),
+    ("行事曆同步", SYNC_CALENDAR, "sync_cal"),
+    ("股票主檔同步", SYNC_STOCKS, "sync_stocks"),
+    ("自動補齊股價", SYNC, "sync"),
     ("Yahoo Finance 補資料", BACKFILL_YAHOO, "backfill_yahoo"),
 ]
 

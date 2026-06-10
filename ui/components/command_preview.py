@@ -1,4 +1,5 @@
 """Command Preview 元件：執行前顯示完整指令字串。"""
+
 from __future__ import annotations
 
 import streamlit as st

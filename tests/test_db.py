@@ -7,7 +7,16 @@ from sqlalchemy import inspect
 from sqlalchemy.orm import Session
 
 from sentinel.db import create_db_engine, create_schema
-from sentinel.models import DataQuarantine, DailyPrice, JobRun, ScanResult, Stock, Strategy, TechnicalIndicator, TradingCalendar
+from sentinel.models import (
+    DailyPrice,
+    DataQuarantine,
+    JobRun,
+    ScanResult,
+    Stock,
+    Strategy,
+    TechnicalIndicator,
+    TradingCalendar,
+)
 from sentinel.persistence import finish_job_run, persist_pipeline_results, start_job_run
 from sentinel.pipeline import compute_indicators, scan_strategy
 
@@ -64,8 +73,18 @@ def test_persist_pipeline_results_writes_core_records(tmp_path) -> None:
     scan_results = scan_strategy(indicators, trading_date=date(2026, 1, 25))
     trading_calendar = pd.DataFrame(
         [
-            {"exchange": "TWSE", "calendar_date": date(2026, 1, 24), "is_trading_day": True, "reason": None},
-            {"exchange": "TWSE", "calendar_date": date(2026, 1, 25), "is_trading_day": False, "reason": "weekend"},
+            {
+                "exchange": "TWSE",
+                "calendar_date": date(2026, 1, 24),
+                "is_trading_day": True,
+                "reason": None,
+            },
+            {
+                "exchange": "TWSE",
+                "calendar_date": date(2026, 1, 25),
+                "is_trading_day": False,
+                "reason": "weekend",
+            },
         ]
     )
 
@@ -109,7 +128,12 @@ def test_persist_pipeline_results_writes_quarantine_rows(tmp_path) -> None:
 
     trading_calendar = pd.DataFrame(
         [
-            {"exchange": "TWSE", "calendar_date": date(2026, 1, 22), "is_trading_day": True, "reason": None},
+            {
+                "exchange": "TWSE",
+                "calendar_date": date(2026, 1, 22),
+                "is_trading_day": True,
+                "reason": None,
+            },
         ]
     )
     quarantined_rows = pd.DataFrame(
@@ -134,7 +158,21 @@ def test_persist_pipeline_results_writes_quarantine_rows(tmp_path) -> None:
 
     counts = persist_pipeline_results(
         engine=engine,
-        prices=pd.DataFrame(columns=["symbol", "name", "market", "trading_date", "open", "high", "low", "close", "volume", "turnover", "source"]),
+        prices=pd.DataFrame(
+            columns=[
+                "symbol",
+                "name",
+                "market",
+                "trading_date",
+                "open",
+                "high",
+                "low",
+                "close",
+                "volume",
+                "turnover",
+                "source",
+            ]
+        ),
         indicators=pd.DataFrame(),
         scan_results=pd.DataFrame(),
         trading_calendar=trading_calendar,
@@ -205,7 +243,9 @@ def test_persist_pipeline_results_keeps_same_symbol_across_markets(tmp_path) -> 
                 "source": "fixture-history",
             }
         )
-    indicators = compute_indicators(pd.concat([pd.DataFrame(history_rows), prices], ignore_index=True))
+    indicators = compute_indicators(
+        pd.concat([pd.DataFrame(history_rows), prices], ignore_index=True)
+    )
     scan_results = pd.DataFrame(
         [
             {
@@ -257,7 +297,10 @@ def test_persist_pipeline_results_keeps_same_symbol_across_markets(tmp_path) -> 
         assert session.query(Stock).count() == 2
         assert session.query(DailyPrice).count() == 2
         assert session.query(ScanResult).count() == 2
-        assert session.query(TechnicalIndicator).filter(TechnicalIndicator.symbol == "6805").count() >= 2
+        assert (
+            session.query(TechnicalIndicator).filter(TechnicalIndicator.symbol == "6805").count()
+            >= 2
+        )
 
 
 def test_create_schema_migrates_legacy_marketless_sqlite_tables(tmp_path) -> None:
@@ -317,7 +360,11 @@ def test_create_schema_migrates_legacy_marketless_sqlite_tables(tmp_path) -> Non
 
     inspector = inspect(engine)
     assert inspector.get_pk_constraint("stocks")["constrained_columns"] == ["market", "symbol"]
-    assert inspector.get_pk_constraint("daily_prices")["constrained_columns"] == ["market", "symbol", "trading_date"]
+    assert inspector.get_pk_constraint("daily_prices")["constrained_columns"] == [
+        "market",
+        "symbol",
+        "trading_date",
+    ]
 
     with Session(engine) as session:
         stock = session.query(Stock).one()

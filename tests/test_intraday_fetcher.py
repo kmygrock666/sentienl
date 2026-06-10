@@ -1,12 +1,13 @@
-
 import unittest
 from unittest.mock import MagicMock, patch
+
 from sentinel.intraday.fetcher import MISFetcher
+
 
 class TestMISFetcher(unittest.TestCase):
     def setUp(self):
         self.fetcher = MISFetcher()
-        self.fetcher._initialized = True # Skip session initialization
+        self.fetcher._initialized = True  # Skip session initialization
 
     @patch("requests.Session.get")
     def test_fetch_batch_success_with_json_content_type(self, mock_get):
@@ -57,6 +58,7 @@ class TestMISFetcher(unittest.TestCase):
 
         results = self.fetcher.fetch_batch(["2330"], ["TWSE"], max_retries=1)
         self.assertEqual(results, [])
+
 
 if __name__ == "__main__":
     unittest.main()

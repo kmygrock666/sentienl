@@ -25,6 +25,7 @@ class TelegramNotifier:
     """
     Notifier for Telegram Bot API.
     """
+
     def __init__(self, token: str, chat_id: str):
         self.token = token
         self.chat_id = chat_id
@@ -32,11 +33,7 @@ class TelegramNotifier:
 
     def send_message(self, text: str) -> bool:
         """Send a text message to the Telegram chat."""
-        payload = {
-            "chat_id": self.chat_id,
-            "text": text,
-            "parse_mode": "HTML"
-        }
+        payload = {"chat_id": self.chat_id, "text": text, "parse_mode": "HTML"}
         try:
             response = requests.post(self.api_url, json=payload, timeout=10)
             response.raise_for_status()
@@ -49,11 +46,11 @@ class TelegramNotifier:
         """Format and send the Tomorrow's Star scan results."""
         if not results:
             return
-            
+
         header = "<b>🌟 明日之星 - 13:00 策略掃描結果</b>\n"
         header += f"日期：{results[0].get('trading_date', '今日')}\n"
         header += "====================\n"
-        
+
         lines = []
         for r in results:
             line = (
@@ -63,9 +60,9 @@ class TelegramNotifier:
                 f"{'🚩 漲停' if r['is_limit_up'] else ''} {'✅ 大戶單' if r['is_great_power'] else ''}\n"
             )
             lines.append(line)
-            
+
         footer = "\n<i>(123 法則參考：8.5% 買 1 / 9% 買 2 / 10% 買 3)</i>"
-        
+
         # Telegram has a limit of 4096 chars per message
         full_text = header + "\n".join(lines) + footer
         self.send_message(full_text)

@@ -1,21 +1,21 @@
 from datetime import date
 from typing import Dict, List, Optional
 
-from sqlalchemy import func, select, desc
+from sqlalchemy import desc, func, select
 from sqlalchemy.orm import Session
 
 from sentinel.models import (
     DailyPrice,
-    TechnicalIndicator,
-    ScanResult,
-    TradingCalendar,
-    Stock,
     DataQuarantine,
-    JobRun,
     InstitutionalFlow,
-    MarginBalance,
     IntradaySnapshot,
     IntradayTrade,
+    JobRun,
+    MarginBalance,
+    ScanResult,
+    Stock,
+    TechnicalIndicator,
+    TradingCalendar,
 )
 
 
@@ -53,48 +53,67 @@ def get_completeness(session: Session, target_date: date):
         .where(TradingCalendar.is_trading_day == True)
         .where(Stock.list_status == "active")
     ).subquery()
-    
+
     expected_stocks = session.execute(select(expected_subq)).all()
     expected_count = len(expected_stocks)
-    
-    actual_count = session.scalar(
-        select(func.count())
-        .select_from(DailyPrice)
-        .where(DailyPrice.trading_date == target_date)
-    ) or 0
-    
+
+    actual_count = (
+        session.scalar(
+            select(func.count())
+            .select_from(DailyPrice)
+            .where(DailyPrice.trading_date == target_date)
+        )
+        or 0
+    )
+
     missing_query = (
         select(expected_subq.c.market, expected_subq.c.symbol)
-        .outerjoin(DailyPrice, (DailyPrice.market == expected_subq.c.market) & (DailyPrice.symbol == expected_subq.c.symbol) & (DailyPrice.trading_date == target_date))
+        .outerjoin(
+            DailyPrice,
+            (DailyPrice.market == expected_subq.c.market)
+            & (DailyPrice.symbol == expected_subq.c.symbol)
+            & (DailyPrice.trading_date == target_date),
+        )
         .where(DailyPrice.symbol == None)
     )
     missing_stocks = session.execute(missing_query).all()
-    
+
     return {
         "date": target_date.isoformat(),
         "expected": expected_count,
         "actual": actual_count,
         "ratio": actual_count / expected_count if expected_count > 0 else 0,
-        "missing": [{"market": m, "symbol": s} for m, s in missing_stocks]
+        "missing": [{"market": m, "symbol": s} for m, s in missing_stocks],
     }
 
 
-def get_scan_results(session: Session, strategy_id: Optional[str] = None, target_date: Optional[date] = None, min_volume: Optional[int] = None, limit: int = 50):
-    stmt = select(ScanResult, Stock.name, DailyPrice.close, DailyPrice.volume).join(
-        Stock, (Stock.market == ScanResult.market) & (Stock.symbol == ScanResult.symbol)
-    ).join(
-        DailyPrice, (DailyPrice.market == ScanResult.market) & (DailyPrice.symbol == ScanResult.symbol) & (DailyPrice.trading_date == ScanResult.trading_date)
+def get_scan_results(
+    session: Session,
+    strategy_id: Optional[str] = None,
+    target_date: Optional[date] = None,
+    min_volume: Optional[int] = None,
+    limit: int = 50,
+):
+    stmt = (
+        select(ScanResult, Stock.name, DailyPrice.close, DailyPrice.volume)
+        .join(Stock, (Stock.market == ScanResult.market) & (Stock.symbol == ScanResult.symbol))
+        .join(
+            DailyPrice,
+            (DailyPrice.market == ScanResult.market)
+            & (DailyPrice.symbol == ScanResult.symbol)
+            & (DailyPrice.trading_date == ScanResult.trading_date),
+        )
     )
-    
+
     if strategy_id:
         stmt = stmt.where(ScanResult.strategy_id == strategy_id)
     if target_date:
         stmt = stmt.where(ScanResult.trading_date == target_date)
     if min_volume:
         stmt = stmt.where(DailyPrice.volume >= min_volume)
-        
+
     stmt = stmt.order_by(desc(ScanResult.score)).limit(limit)
-    
+
     results = session.execute(stmt).all()
     return [
         {
@@ -106,8 +125,9 @@ def get_scan_results(session: Session, strategy_id: Optional[str] = None, target
             "score": float(r.ScanResult.score) if r.ScanResult.score else 0,
             "close": float(r.close),
             "volume": int(r.volume),
-            "signals": r.ScanResult.signals_json
-        } for r in results
+            "signals": r.ScanResult.signals_json,
+        }
+        for r in results
     ]
 
 
@@ -123,8 +143,9 @@ def get_job_logs(session: Session, limit: int = 20):
             "end": j.end_time.isoformat() if j.end_time else "N/A",
             "in": j.rows_in,
             "out": j.rows_out,
-            "error": j.error_summary
-        } for j in jobs
+            "error": j.error_summary,
+        }
+        for j in jobs
     ]
 
 
@@ -138,8 +159,9 @@ def get_quarantine_logs(session: Session, limit: int = 20):
             "pk": e.source_pk_or_batch,
             "rule": e.violated_rule,
             "detected_at": e.detected_at.isoformat(),
-            "resolution": e.resolution
-        } for e in entries
+            "resolution": e.resolution,
+        }
+        for e in entries
     ]
 
 

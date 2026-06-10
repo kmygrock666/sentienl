@@ -28,8 +28,18 @@ def test_build_run_completeness_summary_counts_expected_actual_and_quarantine() 
     )
     trading_calendar = pd.DataFrame(
         [
-            {"exchange": "TWSE", "calendar_date": date(2026, 1, 22), "is_trading_day": True, "reason": None},
-            {"exchange": "TPEX", "calendar_date": date(2026, 1, 22), "is_trading_day": True, "reason": None},
+            {
+                "exchange": "TWSE",
+                "calendar_date": date(2026, 1, 22),
+                "is_trading_day": True,
+                "reason": None,
+            },
+            {
+                "exchange": "TPEX",
+                "calendar_date": date(2026, 1, 22),
+                "is_trading_day": True,
+                "reason": None,
+            },
         ]
     )
 
@@ -78,12 +88,19 @@ def test_build_run_completeness_summary_prefers_active_stock_master() -> None:
     )
     trading_calendar = pd.DataFrame(
         [
-            {"exchange": "TWSE", "calendar_date": date(2026, 1, 22), "is_trading_day": True, "reason": None},
+            {
+                "exchange": "TWSE",
+                "calendar_date": date(2026, 1, 22),
+                "is_trading_day": True,
+                "reason": None,
+            },
         ]
     )
     summary = build_run_completeness_summary(
         universe_prices=pd.DataFrame(columns=["market", "symbol"]),
-        valid_prices=pd.DataFrame([{"market": "TWSE", "symbol": "2330", "trading_date": date(2026, 1, 22)}]),
+        valid_prices=pd.DataFrame(
+            [{"market": "TWSE", "symbol": "2330", "trading_date": date(2026, 1, 22)}]
+        ),
         invalid_prices=pd.DataFrame(columns=["market", "symbol", "trading_date"]),
         trading_calendar=trading_calendar,
         markets=["TWSE"],

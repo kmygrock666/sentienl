@@ -61,14 +61,21 @@ def run_minute_backtest(
     """
     if strategy_mode == "tomorrow_star":
         from sentinel.intraday.historical_signals import generate_tomorrow_star_signals
+
         logger.info(
             "generate_historical_signals",
-            extra={"mode": "tomorrow_star", "start_date": str(start_date), "end_date": str(end_date)}
+            extra={
+                "mode": "tomorrow_star",
+                "start_date": str(start_date),
+                "end_date": str(end_date),
+            },
         )
-        signal_frame = generate_tomorrow_star_signals(daily_session, intraday_session, start_date, end_date)
+        signal_frame = generate_tomorrow_star_signals(
+            daily_session, intraday_session, start_date, end_date
+        )
         if signal_frame.empty:
             return pd.DataFrame(), pd.DataFrame()
-        
+
         # 只保留 tomorrow_star 策略設定
         strategies = [s for s in strategies if s.get("strategy_id") == "tomorrow_star"]
         if not strategies:
@@ -90,7 +97,9 @@ def run_minute_backtest(
         trading_dates = sorted(evaluation_frame["trading_date"].dropna().unique().tolist())
         all_signals = []
         for trading_date in trading_dates:
-            daily_signals = scan_strategies(full_frame, trading_date=trading_date, strategies=strategies)
+            daily_signals = scan_strategies(
+                full_frame, trading_date=trading_date, strategies=strategies
+            )
             if daily_signals.empty:
                 continue
             all_signals.append(daily_signals)
@@ -120,12 +129,13 @@ def run_minute_backtest(
             balance = initial_capital
             active_trades = []
             final_trades = []
-            
+
             # 取得回測區間內所有交易日
             all_dates = sorted(signal_frame["trading_date"].unique())
             for d in all_dates:
-                if isinstance(d, str): d = date.fromisoformat(d)
-                
+                if isinstance(d, str):
+                    d = date.fromisoformat(d)
+
                 # 1. 處理今日出場
                 still_active = []
                 for t in active_trades:
@@ -136,15 +146,15 @@ def run_minute_backtest(
                     else:
                         still_active.append(t)
                 active_trades = still_active
-                
+
                 # 2. 處理今日進場
                 todays_signals = [c for c in candidates if c["entry_date"] == d]
                 for s in todays_signals:
                     if balance >= position_size:
                         balance -= position_size
                         active_trades.append(s)
-            
-            final_trades.extend(active_trades) # 包含期末未平倉
+
+            final_trades.extend(active_trades)  # 包含期末未平倉
             trades.extend(final_trades)
         else:
             trades.extend(candidates)
@@ -356,8 +366,10 @@ def _build_strategy_reports(
         if strategy_trades.empty:
             continue
 
-        strategy_trades = strategy_trades.sort_values(["exit_date", "symbol"]).reset_index(drop=True)
-        
+        strategy_trades = strategy_trades.sort_values(["exit_date", "symbol"]).reset_index(
+            drop=True
+        )
+
         # 計算權益曲線
         if initial_capital is not None:
             strategy_trades["pnl_dollars"] = strategy_trades["trade_return"] * position_size
@@ -365,7 +377,7 @@ def _build_strategy_reports(
             equity = equity_absolute / initial_capital
         else:
             equity = (1.0 + strategy_trades["trade_return"]).cumprod()
-            
+
         running_max = equity.cummax()
         drawdown = equity / running_max - 1.0
         total_return = float(equity.iloc[-1] - 1.0)
@@ -382,23 +394,29 @@ def _build_strategy_reports(
             prices_with_indicators, benchmark_symbol, start_date, end_date
         )
 
-        reports.append({
-            "strategy_id": strategy["strategy_id"],
-            "strategy_name": strategy["name"],
-            "trades": int(len(strategy_trades)),
-            "win_rate": win_rate,
-            "avg_trade_return": avg_return,
-            "total_return": total_return,
-            "cagr": cagr,
-            "mdd": float(drawdown.min()),
-            "turnover": float(len(strategy_trades) / max(years, 1.0)),
-            "benchmark_symbol": benchmark_symbol,
-            "benchmark_total_return": benchmark_return,
-            "execution_model_version": "minute_bar_execution",
-            "exit_reasons": exit_reasons,
-            "initial_capital": initial_capital,
-            "final_balance": (initial_capital + strategy_trades["pnl_dollars"].sum()) if initial_capital is not None else None
-        })
+        reports.append(
+            {
+                "strategy_id": strategy["strategy_id"],
+                "strategy_name": strategy["name"],
+                "trades": int(len(strategy_trades)),
+                "win_rate": win_rate,
+                "avg_trade_return": avg_return,
+                "total_return": total_return,
+                "cagr": cagr,
+                "mdd": float(drawdown.min()),
+                "turnover": float(len(strategy_trades) / max(years, 1.0)),
+                "benchmark_symbol": benchmark_symbol,
+                "benchmark_total_return": benchmark_return,
+                "execution_model_version": "minute_bar_execution",
+                "exit_reasons": exit_reasons,
+                "initial_capital": initial_capital,
+                "final_balance": (
+                    (initial_capital + strategy_trades["pnl_dollars"].sum())
+                    if initial_capital is not None
+                    else None
+                ),
+            }
+        )
     return reports
 
 
@@ -411,9 +429,7 @@ def _compute_benchmark_return(
     """計算基準指數報酬。"""
     if not benchmark_symbol:
         return None
-    benchmark = prices_with_indicators[
-        prices_with_indicators["symbol"] == benchmark_symbol
-    ].copy()
+    benchmark = prices_with_indicators[prices_with_indicators["symbol"] == benchmark_symbol].copy()
     if benchmark.empty:
         return None
     benchmark["trading_date"] = pd.to_datetime(benchmark["trading_date"]).dt.date
@@ -438,7 +454,11 @@ def save_minute_backtest_results(
     initial_capital: Optional[float] = None,
 ) -> dict[str, Path]:
     """儲存分鐘回測結果。"""
-    output_path = output_dir / "backtests" / "minute_{0}_{1}".format(start_date.isoformat(), end_date.isoformat())
+    output_path = (
+        output_dir
+        / "backtests"
+        / "minute_{0}_{1}".format(start_date.isoformat(), end_date.isoformat())
+    )
     output_path.mkdir(parents=True, exist_ok=True)
 
     reports_path = output_path / "report.csv"
@@ -453,26 +473,37 @@ def save_minute_backtest_results(
     # 產生 Markdown 報告
     if not reports.empty:
         md_reports = reports.copy()
-        md_reports = md_reports.rename(columns={
-            "strategy_id": "策略 ID",
-            "strategy_name": "策略名稱",
-            "trades": "交易次數",
-            "win_rate": "勝率",
-            "avg_trade_return": "平均報酬",
-            "total_return": "總報酬率",
-            "cagr": "年化報酬 (CAGR)",
-            "mdd": "最大回撤 (MDD)",
-            "turnover": "週轉率",
-            "benchmark_total_return": "基準報酬",
-        })
-        for col in ["勝率", "平均報酬", "總報酬率", "年化報酬 (CAGR)", "最大回撤 (MDD)", "基準報酬"]:
+        md_reports = md_reports.rename(
+            columns={
+                "strategy_id": "策略 ID",
+                "strategy_name": "策略名稱",
+                "trades": "交易次數",
+                "win_rate": "勝率",
+                "avg_trade_return": "平均報酬",
+                "total_return": "總報酬率",
+                "cagr": "年化報酬 (CAGR)",
+                "mdd": "最大回撤 (MDD)",
+                "turnover": "週轉率",
+                "benchmark_total_return": "基準報酬",
+            }
+        )
+        for col in [
+            "勝率",
+            "平均報酬",
+            "總報酬率",
+            "年化報酬 (CAGR)",
+            "最大回撤 (MDD)",
+            "基準報酬",
+        ]:
             if col in md_reports.columns:
-                md_reports[col] = md_reports[col].apply(lambda x: f"{x:.2%}" if pd.notnull(x) else "N/A")
+                md_reports[col] = md_reports[col].apply(
+                    lambda x: f"{x:.2%}" if pd.notnull(x) else "N/A"
+                )
 
         md_content = f"# 分鐘K線精確回測 - 績效報告\n\n"
         md_content += f"- 測試期間: {start_date} ~ {end_date}\n"
         md_content += f"- 執行模型: `minute_bar_execution`\n"
-        
+
         if initial_capital is not None:
             row = reports.iloc[0]
             f_cap = row.get("initial_capital")
@@ -482,12 +513,20 @@ def save_minute_backtest_results(
                 md_content += f"- **初始資金: ${f_cap:,.0f}**\n"
                 md_content += f"- **最終餘額: ${f_bal:,.0f}**\n"
                 md_content += f"- **核心盈虧: ${net_pnl:,.0f} ({net_pnl/f_cap:+.2%})**\n"
-        
+
         md_content += f"- 進場: 五分K五日均線\n"
         md_content += f"- 出場: +3%停利 / 跌破日均線停損 / 開盤>3%追漲停\n"
         md_content += f"- 執行時間: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n\n"
 
-        display_cols = ['策略名稱', '交易次數', '勝率', '平均報酬', '總報酬率', '年化報酬 (CAGR)', '最大回撤 (MDD)']
+        display_cols = [
+            "策略名稱",
+            "交易次數",
+            "勝率",
+            "平均報酬",
+            "總報酬率",
+            "年化報酬 (CAGR)",
+            "最大回撤 (MDD)",
+        ]
         actual_cols = [c for c in display_cols if c in md_reports.columns]
         md_content += md_reports[actual_cols].to_markdown(index=False)
 
@@ -525,26 +564,41 @@ def save_minute_backtest_results(
             "max_holding": "期滿",
         }
         md_trades["exit_reason"] = md_trades["exit_reason"].map(lambda x: reason_labels.get(x, x))
-        md_trades = md_trades.rename(columns={
-            "strategy_name": "策略",
-            "symbol": "代號",
-            "name": "名稱",
-            "market": "市場",
-            "entry_date": "進場日",
-            "exit_date": "出場日",
-            "entry_price": "進場價",
-            "exit_price": "出場價",
-            "trade_return": "報酬率",
-            "exit_reason": "出場原因",
-        })
+        md_trades = md_trades.rename(
+            columns={
+                "strategy_name": "策略",
+                "symbol": "代號",
+                "name": "名稱",
+                "market": "市場",
+                "entry_date": "進場日",
+                "exit_date": "出場日",
+                "entry_price": "進場價",
+                "exit_price": "出場價",
+                "trade_return": "報酬率",
+                "exit_reason": "出場原因",
+            }
+        )
         md_trades["報酬率"] = md_trades["報酬率"].apply(lambda x: f"{x:.2%}")
         if "balance" in md_trades.columns:
             md_trades = md_trades.rename(columns={"balance": "餘額"})
-            md_trades["餘額"] = md_trades["餘額"].apply(lambda x: f"${x:,.0f}" if pd.notnull(x) else "")
-            
+            md_trades["餘額"] = md_trades["餘額"].apply(
+                lambda x: f"${x:,.0f}" if pd.notnull(x) else ""
+            )
+
         md_content = f"# 分鐘K線精確回測 - 交易明細\n\n"
         md_content += f"- 總計交易: {len(md_trades)} 筆\n\n"
-        display_cols = ['策略', '市場', '代號', '名稱', '進場日', '進場價', '出場日', '出場價', '報酬率', '出場原因']
+        display_cols = [
+            "策略",
+            "市場",
+            "代號",
+            "名稱",
+            "進場日",
+            "進場價",
+            "出場日",
+            "出場價",
+            "報酬率",
+            "出場原因",
+        ]
         if "餘額" in md_trades.columns:
             display_cols.append("餘額")
         md_content += md_trades[display_cols].to_markdown(index=False)

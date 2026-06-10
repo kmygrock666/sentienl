@@ -16,9 +16,17 @@ from sentinel.config import Settings
 from sentinel.db import create_db_engine, create_schema
 from sentinel.logging_utils import get_logger, setup_logging
 from sentinel.official_calendar import fetch_official_trading_calendar
-from sentinel.pipeline import compute_indicators, fetch_prices, save_results, scan_strategy
 from sentinel.persistence import finish_job_run, persist_pipeline_results, start_job_run
+from sentinel.pipeline import compute_indicators, fetch_prices, save_results, scan_strategy
 from sentinel.quality import validate_daily_prices
+from sentinel.query import (
+    get_completeness,
+    get_data_status,
+    get_job_logs,
+    get_latest_dates_by_market,
+    get_quarantine_logs,
+    get_scan_results,
+)
 from sentinel.stock_master import (
     fetch_stock_master_with_diagnostics,
     load_stock_master,
@@ -29,15 +37,18 @@ from sentinel.stock_master import (
 from sentinel.storage import load_price_dataset, save_price_dataset, upsert_prices
 from sentinel.strategies import load_strategy_definitions
 from sentinel.utils import parse_iso_date
-from sentinel.query import get_data_status, get_completeness, get_scan_results, get_job_logs, get_quarantine_logs, get_latest_dates_by_market
 
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Taiwan stock strategy scanner")
     subparsers = parser.add_subparsers(dest="command", required=True)
 
-    run_parser = subparsers.add_parser("run", help="Fetch prices, compute indicators, and scan strategy")
-    run_parser.add_argument("--start-date", required=True, help="Inclusive start date in YYYY-MM-DD")
+    run_parser = subparsers.add_parser(
+        "run", help="Fetch prices, compute indicators, and scan strategy"
+    )
+    run_parser.add_argument(
+        "--start-date", required=True, help="Inclusive start date in YYYY-MM-DD"
+    )
     run_parser.add_argument("--end-date", required=True, help="Inclusive end date in YYYY-MM-DD")
     run_parser.add_argument(
         "--trading-date",
@@ -101,7 +112,9 @@ def build_parser() -> argparse.ArgumentParser:
         help="Filter strategies by direction (long or short).",
     )
 
-    sync_parser = subparsers.add_parser("sync", help="Automatically fetch missing prices until today")
+    sync_parser = subparsers.add_parser(
+        "sync", help="Automatically fetch missing prices until today"
+    )
     sync_parser.add_argument(
         "--market",
         action="append",
@@ -130,9 +143,15 @@ def build_parser() -> argparse.ArgumentParser:
         help="SQLAlchemy database URL. Defaults to TS_DATABASE_URL from environment.",
     )
 
-    calendar_parser = subparsers.add_parser("sync-calendar", help="Sync trading calendar from official sources")
-    calendar_parser.add_argument("--start-date", required=True, help="Inclusive start date in YYYY-MM-DD")
-    calendar_parser.add_argument("--end-date", required=True, help="Inclusive end date in YYYY-MM-DD")
+    calendar_parser = subparsers.add_parser(
+        "sync-calendar", help="Sync trading calendar from official sources"
+    )
+    calendar_parser.add_argument(
+        "--start-date", required=True, help="Inclusive start date in YYYY-MM-DD"
+    )
+    calendar_parser.add_argument(
+        "--end-date", required=True, help="Inclusive end date in YYYY-MM-DD"
+    )
     calendar_parser.add_argument(
         "--market",
         action="append",
@@ -156,7 +175,9 @@ def build_parser() -> argparse.ArgumentParser:
         help="Calendar source mode. 'fixture' only uses local fixture HTML files.",
     )
 
-    stocks_parser = subparsers.add_parser("sync-stocks", help="Sync stock master from fixture sources")
+    stocks_parser = subparsers.add_parser(
+        "sync-stocks", help="Sync stock master from fixture sources"
+    )
     stocks_parser.add_argument(
         "--market",
         action="append",
@@ -185,9 +206,15 @@ def build_parser() -> argparse.ArgumentParser:
         help="Write stock master sync diagnostics JSON to this path. Defaults to outputs/stock_master/sync_diagnostics.json.",
     )
 
-    backtest_parser = subparsers.add_parser("backtest", help="Run backtest using the local price dataset")
-    backtest_parser.add_argument("--start-date", required=True, help="Inclusive start date in YYYY-MM-DD")
-    backtest_parser.add_argument("--end-date", required=True, help="Inclusive end date in YYYY-MM-DD")
+    backtest_parser = subparsers.add_parser(
+        "backtest", help="Run backtest using the local price dataset"
+    )
+    backtest_parser.add_argument(
+        "--start-date", required=True, help="Inclusive start date in YYYY-MM-DD"
+    )
+    backtest_parser.add_argument(
+        "--end-date", required=True, help="Inclusive end date in YYYY-MM-DD"
+    )
     backtest_parser.add_argument(
         "--market",
         action="append",
@@ -250,7 +277,9 @@ def build_parser() -> argparse.ArgumentParser:
         help="Fixed budget per single trade. Default: 100,000.",
     )
 
-    update_intraday_parser = subparsers.add_parser("update-intraday-stats", help="Update historical win rate stats for intraday strategies")
+    update_intraday_parser = subparsers.add_parser(
+        "update-intraday-stats", help="Update historical win rate stats for intraday strategies"
+    )
     update_intraday_parser.add_argument(
         "--database-url",
         help="SQLAlchemy database URL. Defaults to TS_DATABASE_URL from environment.",
@@ -274,7 +303,9 @@ def build_parser() -> argparse.ArgumentParser:
         help="Minimum number of samples required to calculate win rate.",
     )
 
-    capture_snapshot_parser = subparsers.add_parser("capture-intraday-snapshot", help="Capture current price and volume snapshot from MIS")
+    capture_snapshot_parser = subparsers.add_parser(
+        "capture-intraday-snapshot", help="Capture current price and volume snapshot from MIS"
+    )
     capture_snapshot_parser.add_argument(
         "--database-url",
         help="SQLAlchemy database URL. Defaults to TS_DATABASE_URL from environment.",
@@ -291,7 +322,9 @@ def build_parser() -> argparse.ArgumentParser:
         help="Number of top stocks by volume to capture.",
     )
 
-    intraday_run_parser = subparsers.add_parser("run-intraday", help="Run Tomorrow's Star strategy scan at 13:00")
+    intraday_run_parser = subparsers.add_parser(
+        "run-intraday", help="Run Tomorrow's Star strategy scan at 13:00"
+    )
     intraday_run_parser.add_argument(
         "--database-url",
         help="SQLAlchemy database URL. Defaults to TS_DATABASE_URL from environment.",
@@ -314,7 +347,9 @@ def build_parser() -> argparse.ArgumentParser:
         help="Send results to Telegram Channel.",
     )
 
-    update_trades_parser = subparsers.add_parser("update-intraday-trades", help="Close yesterday's open intraday trades using today's prices")
+    update_trades_parser = subparsers.add_parser(
+        "update-intraday-trades", help="Close yesterday's open intraday trades using today's prices"
+    )
     update_trades_parser.add_argument(
         "--database-url",
         help="SQLAlchemy database URL. Defaults to TS_DATABASE_URL from environment.",
@@ -336,7 +371,9 @@ def build_parser() -> argparse.ArgumentParser:
         help="Allow closing trades opened today (useful for testing).",
     )
 
-    monitor_trades_parser = subparsers.add_parser("monitor-intraday-trades", help="Monitor open trades for 2% SL/TP thresholds")
+    monitor_trades_parser = subparsers.add_parser(
+        "monitor-intraday-trades", help="Monitor open trades for 2% SL/TP thresholds"
+    )
     monitor_trades_parser.add_argument(
         "--threshold",
         type=float,
@@ -358,8 +395,12 @@ def build_parser() -> argparse.ArgumentParser:
         help="SQLAlchemy database URL. Defaults to TS_DATABASE_URL from environment.",
     )
 
-    add_trade_parser = subparsers.add_parser("add-intraday-trade", help="Manually add a simulated intraday trade")
-    add_trade_parser.add_argument("--market", default=None, help="Market (TWSE or TPEX). Auto-detected if omitted.")
+    add_trade_parser = subparsers.add_parser(
+        "add-intraday-trade", help="Manually add a simulated intraday trade"
+    )
+    add_trade_parser.add_argument(
+        "--market", default=None, help="Market (TWSE or TPEX). Auto-detected if omitted."
+    )
     add_trade_parser.add_argument("--symbol", required=True, help="Stock symbol")
     add_trade_parser.add_argument("--price", type=float, required=True, help="Entry price")
     add_trade_parser.add_argument("--notes", help="Optional notes for the trade")
@@ -368,7 +409,9 @@ def build_parser() -> argparse.ArgumentParser:
         help="SQLAlchemy database URL. Defaults to TS_DATABASE_URL from environment.",
     )
 
-    import_bars_parser = subparsers.add_parser("import-minute-bars", help="Import 1m CSV bars into DB as aggregated 5m bars")
+    import_bars_parser = subparsers.add_parser(
+        "import-minute-bars", help="Import 1m CSV bars into DB as aggregated 5m bars"
+    )
     import_bars_parser.add_argument(
         "--csv",
         type=Path,
@@ -390,15 +433,19 @@ def build_parser() -> argparse.ArgumentParser:
         help="SQLAlchemy intraday database URL. Defaults to TS_INTRADAY_DATABASE_URL.",
     )
 
-    scheduler_parser = subparsers.add_parser("scheduler", help="Start the automated intraday strategy scheduler")
+    scheduler_parser = subparsers.add_parser(
+        "scheduler", help="Start the automated intraday strategy scheduler"
+    )
     scheduler_parser.add_argument(
         "--database-url",
         help="SQLAlchemy database URL. Defaults to TS_DATABASE_URL from environment.",
     )
 
     inspect_parser = subparsers.add_parser("inspect", help="Inspect database state and results")
-    
-    clear_trades_parser = subparsers.add_parser("clear-intraday-trades", help="Clear all simulated intraday trade records")
+
+    clear_trades_parser = subparsers.add_parser(
+        "clear-intraday-trades", help="Clear all simulated intraday trade records"
+    )
     clear_trades_parser.add_argument(
         "--database-url",
         help="SQLAlchemy database URL. Defaults to TS_DATABASE_URL from environment.",
@@ -408,28 +455,47 @@ def build_parser() -> argparse.ArgumentParser:
 
     inspect_subparsers.add_parser("status", help="Show latest capture dates for all tables")
 
-    completeness_parser = inspect_subparsers.add_parser("completeness", help="Check data completeness for a date")
+    completeness_parser = inspect_subparsers.add_parser(
+        "completeness", help="Check data completeness for a date"
+    )
     completeness_parser.add_argument("--date", required=True, help="Target date in YYYY-MM-DD")
 
     results_parser = inspect_subparsers.add_parser("results", help="Show strategy scan results")
     results_parser.add_argument("--strategy", help="Filter by strategy ID")
     results_parser.add_argument("--date", help="Target date in YYYY-MM-DD")
     results_parser.add_argument("--min-volume", type=int, help="Filter by minimum volume")
-    results_parser.add_argument("--direction", choices=["long", "short"], help="Filter by strategy direction")
-    results_parser.add_argument("--limit", type=int, default=50, help="Maximum number of results (default: 50)")
+    results_parser.add_argument(
+        "--direction", choices=["long", "short"], help="Filter by strategy direction"
+    )
+    results_parser.add_argument(
+        "--limit", type=int, default=50, help="Maximum number of results (default: 50)"
+    )
 
     logs_parser = inspect_subparsers.add_parser("logs", help="Show job or quarantine logs")
-    logs_parser.add_argument("--type", choices=["jobs", "quarantine"], default="jobs", help="Log type to show")
-    logs_parser.add_argument("--limit", type=int, default=20, help="Maximum number of entries (default: 20)")
+    logs_parser.add_argument(
+        "--type", choices=["jobs", "quarantine"], default="jobs", help="Log type to show"
+    )
+    logs_parser.add_argument(
+        "--limit", type=int, default=20, help="Maximum number of entries (default: 20)"
+    )
 
-    inspect_intraday_parser = inspect_subparsers.add_parser("intraday-trades", help="Show simulated intraday trade logs")
+    inspect_intraday_parser = inspect_subparsers.add_parser(
+        "intraday-trades", help="Show simulated intraday trade logs"
+    )
     inspect_intraday_parser.add_argument(
         "--export",
         action="store_true",
         help="Export the trade logs to a CSV file in outputs/reports/.",
     )
 
-    for p in [inspect_parser, status_parser := inspect_subparsers.choices.get("status"), completeness_parser, results_parser, logs_parser, inspect_subparsers.choices.get("intraday-trades")]:
+    for p in [
+        inspect_parser,
+        status_parser := inspect_subparsers.choices.get("status"),
+        completeness_parser,
+        results_parser,
+        logs_parser,
+        inspect_subparsers.choices.get("intraday-trades"),
+    ]:
         if p:
             p.add_argument("--database-url", help="SQLAlchemy database URL")
 
@@ -438,22 +504,35 @@ def build_parser() -> argparse.ArgumentParser:
         help="Check which observation signals are triggered for a specific stock on a given date",
     )
     check_parser.add_argument("--symbol", required=True, help="Stock symbol to inspect (e.g. 2492)")
-    check_parser.add_argument("--date", help="Trading date in YYYY-MM-DD. Defaults to the latest available date for the stock.")
-    check_parser.add_argument("--dataset-path", type=Path, help="Override the canonical daily price dataset path.")
-    check_parser.add_argument("--signal-path", type=Path, help="Signal config path. Defaults to config/signals.json.")
+    check_parser.add_argument(
+        "--date",
+        help="Trading date in YYYY-MM-DD. Defaults to the latest available date for the stock.",
+    )
+    check_parser.add_argument(
+        "--dataset-path", type=Path, help="Override the canonical daily price dataset path."
+    )
+    check_parser.add_argument(
+        "--signal-path", type=Path, help="Signal config path. Defaults to config/signals.json."
+    )
 
     backfill_agg_parser = subparsers.add_parser(
         "backfill-aggregated-bars",
         help="One-time backfill of daily_prices_3d and daily_prices_47d from existing price data",
     )
-    backfill_agg_parser.add_argument("--database-url", help="SQLAlchemy database URL. Defaults to TS_DATABASE_URL.")
-    backfill_agg_parser.add_argument("--dataset-path", type=Path, help="Override the canonical daily price dataset path.")
+    backfill_agg_parser.add_argument(
+        "--database-url", help="SQLAlchemy database URL. Defaults to TS_DATABASE_URL."
+    )
+    backfill_agg_parser.add_argument(
+        "--dataset-path", type=Path, help="Override the canonical daily price dataset path."
+    )
 
     yahoo_parser = subparsers.add_parser(
         "backfill-yahoo",
         help="Backfill missing historical prices from Yahoo Finance",
     )
-    yahoo_parser.add_argument("--start-date", required=True, help="Inclusive start date in YYYY-MM-DD")
+    yahoo_parser.add_argument(
+        "--start-date", required=True, help="Inclusive start date in YYYY-MM-DD"
+    )
     yahoo_parser.add_argument("--end-date", required=True, help="Inclusive end date in YYYY-MM-DD")
     yahoo_parser.add_argument(
         "--market",
@@ -462,7 +541,9 @@ def build_parser() -> argparse.ArgumentParser:
         default=[],
         help="Market to backfill (TWSE or TPEX). Repeatable. Defaults to TWSE, TPEX.",
     )
-    yahoo_parser.add_argument("--database-url", help="SQLAlchemy database URL. Defaults to TS_DATABASE_URL.")
+    yahoo_parser.add_argument(
+        "--database-url", help="SQLAlchemy database URL. Defaults to TS_DATABASE_URL."
+    )
 
     return parser
 
@@ -519,11 +600,14 @@ def main(argv: Optional[List[str]] = None) -> int:
         )
         persisted_counts = {}
         if engine:
-            from sentinel.persistence import upsert_trading_calendar
             from sqlalchemy.orm import Session
 
+            from sentinel.persistence import upsert_trading_calendar
+
             with Session(engine) as session:
-                persisted_counts["trading_calendar"] = upsert_trading_calendar(session, trading_calendar)
+                persisted_counts["trading_calendar"] = upsert_trading_calendar(
+                    session, trading_calendar
+                )
                 session.commit()
 
         logger.info(
@@ -543,7 +627,9 @@ def main(argv: Optional[List[str]] = None) -> int:
     if args.command == "sync-stocks":
         markets = args.markets or ["TWSE"]
         dataset_path = args.dataset_path or settings.stock_master_path
-        diagnostics_path = args.diagnostics_path or settings.output_dir / "stock_master" / "sync_diagnostics.json"
+        diagnostics_path = (
+            args.diagnostics_path or settings.output_dir / "stock_master" / "sync_diagnostics.json"
+        )
         database_url = args.database_url or settings.database_url
         engine = create_db_engine(database_url) if database_url else None
         if engine:
@@ -562,6 +648,7 @@ def main(argv: Optional[List[str]] = None) -> int:
         persisted_counts = {}
         if engine:
             from sqlalchemy.orm import Session
+
             from sentinel.persistence import upsert_stock_master_rows
 
             with Session(engine) as session:
@@ -577,7 +664,9 @@ def main(argv: Optional[List[str]] = None) -> int:
                 "dataset_path": str(dataset_path),
                 "diagnostics_path": str(diagnostics_path),
                 "diagnostic_failures": [
-                    diagnostic["market"] for diagnostic in diagnostics if diagnostic["final_status"] != "success"
+                    diagnostic["market"]
+                    for diagnostic in diagnostics
+                    if diagnostic["final_status"] != "success"
                 ],
                 "persisted_counts": persisted_counts,
             },
@@ -593,8 +682,9 @@ def main(argv: Optional[List[str]] = None) -> int:
         if not csv_path.exists():
             parser.error(f"CSV file not found: {csv_path}")
 
-        from sentinel.minute_bars import import_minute_bars_csv
         from sqlalchemy.orm import Session
+
+        from sentinel.minute_bars import import_minute_bars_csv
 
         intraday_engine = create_db_engine(intraday_url)
         create_schema(intraday_engine)
@@ -604,6 +694,7 @@ def main(argv: Optional[List[str]] = None) -> int:
         symbol_market_map = {}
         if database_url:
             from sentinel.models import Stock
+
             main_engine = create_db_engine(database_url)
             with Session(main_engine) as main_session:
                 stocks = main_session.query(Stock.symbol, Stock.market).all()
@@ -617,10 +708,10 @@ def main(argv: Optional[List[str]] = None) -> int:
                 print(f"啟動標的主檔校正：已載入 {len(symbol_market_map)} 筆代號映射")
             print("匯入中（1m → 5m 聚合）... 本次採用極速 bulk insert 優化！")
             total = import_minute_bars_csv(
-                intraday_session, 
-                csv_path, 
+                intraday_session,
+                csv_path,
                 chunk_size=args.chunk_size,
-                symbol_market_map=symbol_market_map
+                symbol_market_map=symbol_market_map,
             )
             print(f"\n✅ 匯入完成，共寫入 {total:,} 筆 5m K 線。")
         return 0
@@ -635,16 +726,18 @@ def main(argv: Optional[List[str]] = None) -> int:
         output_dir = args.output_dir or settings.output_dir
         database_url = args.database_url or settings.database_url
         intraday_url = args.intraday_database_url or settings.intraday_database_url
-        
+
         engine = create_db_engine(database_url) if database_url else None
         intraday_engine = create_db_engine(intraday_url) if intraday_url else None
-        
+
         if engine:
             create_schema(engine)
         if intraday_engine:
             create_schema(intraday_engine)
-            
-        strategy_definitions = load_strategy_definitions(args.strategy_path or settings.strategy_config_path)
+
+        strategy_definitions = load_strategy_definitions(
+            args.strategy_path or settings.strategy_config_path
+        )
         backtest_run_id = uuid.uuid4().hex
 
         if engine:
@@ -652,28 +745,44 @@ def main(argv: Optional[List[str]] = None) -> int:
 
         try:
             prices = load_price_dataset(dataset_path)
-            markets = args.markets or sorted(prices["market"].dropna().unique().tolist()) if not prices.empty else ["TWSE"]
+            markets = (
+                args.markets or sorted(prices["market"].dropna().unique().tolist())
+                if not prices.empty
+                else ["TWSE"]
+            )
             if not prices.empty:
                 prices = prices[prices["market"].isin(markets)].copy()
             enriched_prices = compute_indicators(prices)
-            
+
             # Apply symbol filter if provided
             if getattr(args, "symbol", None):
                 enriched_prices = enriched_prices[enriched_prices["symbol"] == args.symbol].copy()
                 if enriched_prices.empty:
                     print(f"⚠️ No data found for symbol: {args.symbol} in the dataset.")
                     return 0
-                print(f"📊 Filtering backtest to symbol: {args.symbol} ({len(enriched_prices)} rows)")
+                print(
+                    f"📊 Filtering backtest to symbol: {args.symbol} ({len(enriched_prices)} rows)"
+                )
 
             # 依據 execution model 選擇引擎
-            use_minute_bar = getattr(args, 'execution_model', 'daily') == 'minute_bar'
+            use_minute_bar = getattr(args, "execution_model", "daily") == "minute_bar"
 
             if use_minute_bar:
                 if not database_url or not intraday_url:
-                    parser.error("minute_bar execution model requires both --database-url and --intraday-database-url (or TS_DATABASE_URL and TS_INTRADAY_DATABASE_URL)")
-                from sentinel.backtest_minute import run_minute_backtest, save_minute_backtest_results
+                    parser.error(
+                        "minute_bar execution model requires both --database-url and --intraday-database-url (or TS_DATABASE_URL and TS_INTRADAY_DATABASE_URL)"
+                    )
                 from sqlalchemy.orm import Session as SASession
-                with SASession(engine) as bt_session, SASession(intraday_engine) as intraday_session:
+
+                from sentinel.backtest_minute import (
+                    run_minute_backtest,
+                    save_minute_backtest_results,
+                )
+
+                with (
+                    SASession(engine) as bt_session,
+                    SASession(intraday_engine) as intraday_session,
+                ):
                     reports, trades = run_minute_backtest(
                         prices_with_indicators=enriched_prices,
                         strategies=strategy_definitions,
@@ -682,9 +791,9 @@ def main(argv: Optional[List[str]] = None) -> int:
                         daily_session=bt_session,
                         intraday_session=intraday_session,
                         benchmark_symbol=args.benchmark_symbol,
-                        strategy_mode=getattr(args, 'strategy_mode', 'standard'),
-                        initial_capital=getattr(args, 'initial_capital', None),
-                        position_size=getattr(args, 'position_size', 100000),
+                        strategy_mode=getattr(args, "strategy_mode", "standard"),
+                        initial_capital=getattr(args, "initial_capital", None),
+                        position_size=getattr(args, "position_size", 100000),
                     )
                 artifacts = save_minute_backtest_results(
                     reports=reports,
@@ -692,7 +801,7 @@ def main(argv: Optional[List[str]] = None) -> int:
                     output_dir=output_dir,
                     start_date=start_date,
                     end_date=end_date,
-                    initial_capital=getattr(args, 'initial_capital', None),
+                    initial_capital=getattr(args, "initial_capital", None),
                 )
             else:
                 reports, trades = run_backtest(
@@ -701,8 +810,8 @@ def main(argv: Optional[List[str]] = None) -> int:
                     start_date=start_date,
                     end_date=end_date,
                     benchmark_symbol=args.benchmark_symbol,
-                    initial_capital=getattr(args, 'initial_capital', None),
-                    position_size=getattr(args, 'position_size', 100000),
+                    initial_capital=getattr(args, "initial_capital", None),
+                    position_size=getattr(args, "position_size", 100000),
                 )
                 artifacts = save_backtest_results(
                     reports=reports,
@@ -710,7 +819,7 @@ def main(argv: Optional[List[str]] = None) -> int:
                     output_dir=output_dir,
                     start_date=start_date,
                     end_date=end_date,
-                    initial_capital=getattr(args, 'initial_capital', None),
+                    initial_capital=getattr(args, "initial_capital", None),
                 )
 
             if engine:
@@ -727,7 +836,11 @@ def main(argv: Optional[List[str]] = None) -> int:
                 extra={
                     "run_id": backtest_run_id,
                     "markets": markets,
-                    "strategies": [strategy["strategy_id"] for strategy in strategy_definitions if strategy.get("is_active", True)],
+                    "strategies": [
+                        strategy["strategy_id"]
+                        for strategy in strategy_definitions
+                        if strategy.get("is_active", True)
+                    ],
                     "trades": int(len(trades.index)),
                     "report_rows": int(len(reports.index)),
                     "report_path": str(artifacts["report"]),
@@ -736,18 +849,36 @@ def main(argv: Optional[List[str]] = None) -> int:
                     "trades_md": str(artifacts["trades_md"]),
                 },
             )
-            
-            print("\n" + "="*60)
+
+            print("\n" + "=" * 60)
             print("📊 回測執行完畢 - 交易結果統計")
-            print("="*60)
+            print("=" * 60)
             print(f"📄 績效報告 (MD): {artifacts['report_md']}")
             print(f"📄 交易明細 (MD): {artifacts['trades_md']}")
-            pd.set_option('display.unicode.east_asian_width', True)
+            pd.set_option("display.unicode.east_asian_width", True)
             if not reports.empty:
                 print("\n📈 策略總結:")
-                disp_reports = reports[['strategy_name', 'trades', 'win_rate', 'avg_trade_return', 'total_return', 'cagr', 'mdd']].copy()
-                disp_reports.columns = ['策略名稱', '交易次數', '勝率', '平均報酬', '總報酬率', '年化報酬', '最大回撤']
-                for col in ['勝率', '平均報酬', '總報酬率', '年化報酬', '最大回撤']:
+                disp_reports = reports[
+                    [
+                        "strategy_name",
+                        "trades",
+                        "win_rate",
+                        "avg_trade_return",
+                        "total_return",
+                        "cagr",
+                        "mdd",
+                    ]
+                ].copy()
+                disp_reports.columns = [
+                    "策略名稱",
+                    "交易次數",
+                    "勝率",
+                    "平均報酬",
+                    "總報酬率",
+                    "年化報酬",
+                    "最大回撤",
+                ]
+                for col in ["勝率", "平均報酬", "總報酬率", "年化報酬", "最大回撤"]:
                     disp_reports[col] = disp_reports[col].apply(lambda x: f"{x:.2%}")
                 print(disp_reports.to_string(index=False))
             else:
@@ -756,43 +887,67 @@ def main(argv: Optional[List[str]] = None) -> int:
             if not trades.empty:
                 print("\n📋 交易明細 (前 20 筆):")
                 disp_trades = trades.head(20).copy()
-                
+
                 stock_master = load_stock_master(settings.stock_master_path)
                 if not stock_master.empty:
-                    disp_trades['symbol'] = disp_trades['symbol'].astype(str)
-                    stock_master['symbol'] = stock_master['symbol'].astype(str)
+                    disp_trades["symbol"] = disp_trades["symbol"].astype(str)
+                    stock_master["symbol"] = stock_master["symbol"].astype(str)
                     disp_trades = pd.merge(
-                        disp_trades, 
-                        stock_master[['market', 'symbol', 'name', 'industry']], 
-                        on=['market', 'symbol'], 
-                        how='left'
+                        disp_trades,
+                        stock_master[["market", "symbol", "name", "industry"]],
+                        on=["market", "symbol"],
+                        how="left",
                     )
                 else:
-                    disp_trades['name'] = ""
-                    disp_trades['industry'] = ""
-                    
+                    disp_trades["name"] = ""
+                    disp_trades["industry"] = ""
+
                 market_map = {"TWSE": "上市", "TPEX": "上櫃"}
-                disp_trades['market'] = disp_trades['market'].map(lambda x: market_map.get(x, x))
-                
-                disp_columns = ['strategy_name', 'market', 'symbol', 'name', 'industry', 'entry_date', 'entry_price', 'exit_date', 'exit_price', 'trade_return']
+                disp_trades["market"] = disp_trades["market"].map(lambda x: market_map.get(x, x))
+
+                disp_columns = [
+                    "strategy_name",
+                    "market",
+                    "symbol",
+                    "name",
+                    "industry",
+                    "entry_date",
+                    "entry_price",
+                    "exit_date",
+                    "exit_price",
+                    "trade_return",
+                ]
                 # ensure they exist (fallback if merge failed)
                 for col in disp_columns:
                     if col not in disp_trades.columns:
                         disp_trades[col] = ""
-                        
+
                 disp_trades = disp_trades[disp_columns]
-                disp_trades.columns = ['策略名稱', '市場', '代號', '名稱', '產業', '進場日', '進場價', '出場日', '出場價', '報酬率']
-                
+                disp_trades.columns = [
+                    "策略名稱",
+                    "市場",
+                    "代號",
+                    "名稱",
+                    "產業",
+                    "進場日",
+                    "進場價",
+                    "出場日",
+                    "出場價",
+                    "報酬率",
+                ]
+
                 # Format float return
-                disp_trades['報酬率'] = pd.to_numeric(disp_trades['報酬率'], errors='coerce').apply(lambda x: f"{x:.2%}" if pd.notna(x) else "")
-                
+                disp_trades["報酬率"] = pd.to_numeric(disp_trades["報酬率"], errors="coerce").apply(
+                    lambda x: f"{x:.2%}" if pd.notna(x) else ""
+                )
+
                 print(disp_trades.to_string(index=False))
                 if len(trades.index) > 20:
                     print(f"... 還有 {len(trades.index) - 20} 筆紀錄，請查看輸出檔案。")
             else:
                 print("\n📋 交易明細: 無")
-            print("="*60 + "\n")
-            
+            print("=" * 60 + "\n")
+
             return 0
         except Exception as exc:
             if engine:
@@ -811,17 +966,21 @@ def main(argv: Optional[List[str]] = None) -> int:
             parser.error("--database-url is required or set TS_DATABASE_URL in the environment")
 
         from sqlalchemy.orm import Session
+
         from sentinel.intraday.indicators import calculate_intraday_win_rates
+
         engine = create_db_engine(database_url)
         create_schema(engine)  # Ensure new tables exist
 
         with Session(engine) as session:
-            print(f"Updating intraday win rates (Lookback: {args.lookback_days} days, Threshold: {args.gain_threshold*100}%)...")
+            print(
+                f"Updating intraday win rates (Lookback: {args.lookback_days} days, Threshold: {args.gain_threshold*100}%)..."
+            )
             count = calculate_intraday_win_rates(
                 session=session,
                 lookback_days=args.lookback_days,
                 gain_threshold=args.gain_threshold,
-                min_samples=args.min_samples
+                min_samples=args.min_samples,
             )
             print(f"Successfully updated win rates for {count} stocks.")
             return 0
@@ -832,7 +991,9 @@ def main(argv: Optional[List[str]] = None) -> int:
             parser.error("--database-url is required or set TS_DATABASE_URL in the environment")
 
         from sqlalchemy.orm import Session
+
         from sentinel.intraday.snapshots import capture_intraday_snapshot
+
         engine = create_db_engine(database_url)
         create_schema(engine)
 
@@ -848,39 +1009,65 @@ def main(argv: Optional[List[str]] = None) -> int:
             parser.error("--database-url is required or set TS_DATABASE_URL in the environment")
 
         from sqlalchemy.orm import Session
+
         from sentinel.intraday.engine import run_tomorrow_star_scan
+
         engine = create_db_engine(database_url)
         create_schema(engine)
 
         with Session(engine) as session:
             print(f"Running Tomorrow's Star Scan (Top {args.top}, Gain > {args.min_gain*100}%)...")
             results = run_tomorrow_star_scan(session, top_n=args.top, min_gain=args.min_gain)
-            
+
             if not results:
                 print("No stocks matched the strategy criteria today.")
             else:
-                print("\n" + "="*80)
+                print("\n" + "=" * 80)
                 print(f"🌟 明日之星 - 13:00 策略掃描結果 ({len(results)} 筆)")
-                print("="*80)
-                
+                print("=" * 80)
+
                 df = pd.DataFrame(results)
                 # Reorder and rename for display
-                df = df[['market', 'symbol', 'name', 'close', 'gain', 'vol_ratio', 'vol_surge_ratio', 'win_rate', 'is_great_power', 'is_limit_up']]
+                df = df[
+                    [
+                        "market",
+                        "symbol",
+                        "name",
+                        "close",
+                        "gain",
+                        "vol_ratio",
+                        "vol_surge_ratio",
+                        "win_rate",
+                        "is_great_power",
+                        "is_limit_up",
+                    ]
+                ]
                 market_map = {"TWSE": "上市", "TPEX": "上櫃"}
-                df['market'] = df['market'].map(lambda x: market_map.get(x, x))
-                df.columns = ['市場', '代號', '名稱', '現價', '漲幅', '量能比', '午盤比', '歷史勝率', '大戶單', '漲停']
-                
-                df['漲幅'] = df['漲幅'].apply(lambda x: f"{x:.2%}")
-                df['量能比'] = df['量能比'].apply(lambda x: f"{x:.2f}x")
-                df['午盤比'] = df['午盤比'].apply(lambda x: f"{x:.2f}x")
-                df['歷史勝率'] = df['歷史勝率'].apply(lambda x: f"{x:.0%}")
-                df['大戶單'] = df['大戶單'].apply(lambda x: "✅" if x else " ")
-                df['漲停'] = df['漲停'].apply(lambda x: "🚩" if x else " ")
-                
-                pd.set_option('display.unicode.east_asian_width', True)
+                df["market"] = df["market"].map(lambda x: market_map.get(x, x))
+                df.columns = [
+                    "市場",
+                    "代號",
+                    "名稱",
+                    "現價",
+                    "漲幅",
+                    "量能比",
+                    "午盤比",
+                    "歷史勝率",
+                    "大戶單",
+                    "漲停",
+                ]
+
+                df["漲幅"] = df["漲幅"].apply(lambda x: f"{x:.2%}")
+                df["量能比"] = df["量能比"].apply(lambda x: f"{x:.2f}x")
+                df["午盤比"] = df["午盤比"].apply(lambda x: f"{x:.2f}x")
+                df["歷史勝率"] = df["歷史勝率"].apply(lambda x: f"{x:.0%}")
+                df["大戶單"] = df["大戶單"].apply(lambda x: "✅" if x else " ")
+                df["漲停"] = df["漲停"].apply(lambda x: "🚩" if x else " ")
+
+                pd.set_option("display.unicode.east_asian_width", True)
                 print(df.to_string(index=False))
-                print("="*80 + "\n")
-                
+                print("=" * 80 + "\n")
+
                 if args.notify_telegram:
                     from sentinel.intraday.notifiers import build_telegram_notifier
 
@@ -902,13 +1089,22 @@ def main(argv: Optional[List[str]] = None) -> int:
             parser.error("--database-url is required or set TS_DATABASE_URL in the environment")
 
         from sqlalchemy.orm import Session
+
         from sentinel.intraday.trades import update_intraday_trades
+
         engine = create_db_engine(database_url)
         create_schema(engine)
 
         with Session(engine) as session:
-            print(f"Closing open trades (Real-time: {args.real_time}, Type: {args.price_type}, Allow Today: {args.allow_today})...")
-            count = update_intraday_trades(session, real_time=args.real_time, price_type=args.price_type, allow_today=args.allow_today)
+            print(
+                f"Closing open trades (Real-time: {args.real_time}, Type: {args.price_type}, Allow Today: {args.allow_today})..."
+            )
+            count = update_intraday_trades(
+                session,
+                real_time=args.real_time,
+                price_type=args.price_type,
+                allow_today=args.allow_today,
+            )
             print(f"Successfully closed {count} trades.")
             return 0
 
@@ -918,12 +1114,21 @@ def main(argv: Optional[List[str]] = None) -> int:
             parser.error("--database-url is required or set TS_DATABASE_URL in the environment")
 
         from sqlalchemy.orm import Session
+
         from sentinel.intraday.trades import monitor_and_close_intraday_trades
+
         engine = create_db_engine(database_url)
 
         with Session(engine) as session:
-            print(f"Monitoring SL/TP triggers (Threshold: {args.threshold}, Force Close: {args.force_close}, Allow Today: {args.allow_today})...")
-            count = monitor_and_close_intraday_trades(session, threshold=args.threshold, force_close=args.force_close, allow_today=args.allow_today)
+            print(
+                f"Monitoring SL/TP triggers (Threshold: {args.threshold}, Force Close: {args.force_close}, Allow Today: {args.allow_today})..."
+            )
+            count = monitor_and_close_intraday_trades(
+                session,
+                threshold=args.threshold,
+                force_close=args.force_close,
+                allow_today=args.allow_today,
+            )
             print(f"Executed monitor: {count} trades closed.")
             return 0
 
@@ -933,7 +1138,9 @@ def main(argv: Optional[List[str]] = None) -> int:
             parser.error("--database-url is required or set TS_DATABASE_URL in the environment")
 
         from sqlalchemy.orm import Session
+
         from sentinel.intraday.trades import add_manual_intraday_trade
+
         engine = create_db_engine(database_url)
 
         with Session(engine) as session:
@@ -942,7 +1149,7 @@ def main(argv: Optional[List[str]] = None) -> int:
                 market=args.market,
                 symbol=args.symbol,
                 entry_price=args.price,
-                notes=args.notes
+                notes=args.notes,
             )
             if success:
                 # Re-query to get the actual market (may have been auto-detected)
@@ -958,7 +1165,9 @@ def main(argv: Optional[List[str]] = None) -> int:
             parser.error("--database-url is required or set TS_DATABASE_URL in the environment")
 
         from sqlalchemy.orm import Session
+
         from sentinel.intraday.trades import clear_intraday_trades
+
         engine = create_db_engine(database_url)
 
         with Session(engine) as session:
@@ -972,6 +1181,7 @@ def main(argv: Optional[List[str]] = None) -> int:
             parser.error("--database-url is required or set TS_DATABASE_URL in the environment")
 
         from sentinel.intraday.scheduler import IntradayScheduler
+
         scheduler = IntradayScheduler(database_url)
         scheduler.start()
         return 0
@@ -980,14 +1190,15 @@ def main(argv: Optional[List[str]] = None) -> int:
         database_url = args.database_url or settings.database_url
         if not database_url:
             parser.error("--database-url is required or set TS_DATABASE_URL in the environment")
-        
+
         from sqlalchemy.orm import Session
+
         engine = create_db_engine(database_url)
-        
+
         with Session(engine) as session:
             if args.inspect_command == "status":
                 data = get_data_status(session)
-                
+
                 descriptions = {
                     "daily_prices": "日成交價",
                     "technical_indicators": "技術指標",
@@ -998,86 +1209,129 @@ def main(argv: Optional[List[str]] = None) -> int:
                     "intraday_snapshots": "日內量能快照",
                     "intraday_trades": "日內模擬交易紀錄",
                 }
-                
-                print("\n" + "="*90)
-                print(f"{'資料表 (Table Name)':<35} | {'最舊 (Min)':<12} | {'最新 (Max)':<12} | {'總筆數 (Records)':>13}")
+
+                print("\n" + "=" * 90)
+                print(
+                    f"{'資料表 (Table Name)':<35} | {'最舊 (Min)':<12} | {'最新 (Max)':<12} | {'總筆數 (Records)':>13}"
+                )
                 print("-" * 90)
                 for table_name, status in data.items():
                     desc = descriptions.get(table_name, "")
                     label = f"{table_name} ({desc})" if desc else table_name
-                    print(f"{label:<35} | {status['earliest']:<12} | {status['latest']:<12} | {status['count']:>13,}")
-                print("="*90 + "\n")
-            
+                    print(
+                        f"{label:<35} | {status['earliest']:<12} | {status['latest']:<12} | {status['count']:>13,}"
+                    )
+                print("=" * 90 + "\n")
+
             elif args.inspect_command == "completeness":
                 target_date = parse_iso_date(args.date)
                 data = get_completeness(session, target_date)
                 # Simplified output for terminal
                 print(f"Date: {data['date']}")
                 print(f"Ratio: {data['ratio']:.2%} ({data['actual']}/{data['expected']})")
-                if data['missing']:
+                if data["missing"]:
                     print("\nMissing Stocks:")
-                    for m in data['missing']:
+                    for m in data["missing"]:
                         print(f"  - {m['market']}:{m['symbol']}")
-            
+
             elif args.inspect_command == "results":
                 target_date = parse_iso_date(args.date) if args.date else None
-                data = get_scan_results(session, strategy_id=args.strategy, target_date=target_date, min_volume=args.min_volume, limit=args.limit)
+                data = get_scan_results(
+                    session,
+                    strategy_id=args.strategy,
+                    target_date=target_date,
+                    min_volume=args.min_volume,
+                    limit=args.limit,
+                )
                 if not data:
                     print("No results found.")
                 else:
-                    pd.set_option('display.unicode.east_asian_width', True)
+                    pd.set_option("display.unicode.east_asian_width", True)
                     df = pd.DataFrame(data)
-                    
+
                     strategy_defs = load_strategy_definitions(settings.strategy_config_path)
-                    strategy_dir_map = {s["strategy_id"]: s.get("params_json", {}).get("direction", "long") for s in strategy_defs}
-                    df['direction'] = df['strategy'].map(strategy_dir_map).fillna("long")
+                    strategy_dir_map = {
+                        s["strategy_id"]: s.get("params_json", {}).get("direction", "long")
+                        for s in strategy_defs
+                    }
+                    df["direction"] = df["strategy"].map(strategy_dir_map).fillna("long")
 
                     if args.direction:
-                        df = df[df['direction'] == args.direction].copy()
-                    
+                        df = df[df["direction"] == args.direction].copy()
+
                     if df.empty:
                         print(f"No results found for direction: {args.direction}")
                         return 0
-                    
+
                     stock_master = load_stock_master(settings.stock_master_path)
                     if not stock_master.empty:
-                        df['symbol'] = df['symbol'].astype(str)
-                        stock_master['symbol'] = stock_master['symbol'].astype(str)
+                        df["symbol"] = df["symbol"].astype(str)
+                        stock_master["symbol"] = stock_master["symbol"].astype(str)
                         # Only merge if industry is not already present
-                        if 'industry' not in df.columns:
+                        if "industry" not in df.columns:
                             df = pd.merge(
-                                df, 
-                                stock_master[['market', 'symbol', 'industry']], 
-                                on=['market', 'symbol'], 
-                                how='left'
+                                df,
+                                stock_master[["market", "symbol", "industry"]],
+                                on=["market", "symbol"],
+                                how="left",
                             )
-                    elif 'industry' not in df.columns:
-                        df['industry'] = ""
-                    
+                    elif "industry" not in df.columns:
+                        df["industry"] = ""
+
                     # Sort by Strategy, Industry, Close
                     sort_cols = []
-                    if 'strategy' in df.columns: sort_cols.append('strategy')
-                    if 'industry' in df.columns: sort_cols.append('industry')
-                    if 'close' in df.columns: sort_cols.append('close')
+                    if "strategy" in df.columns:
+                        sort_cols.append("strategy")
+                    if "industry" in df.columns:
+                        sort_cols.append("industry")
+                    if "close" in df.columns:
+                        sort_cols.append("close")
                     if sort_cols:
                         ascending = [True] * len(sort_cols)
-                        if 'close' in sort_cols: ascending[sort_cols.index('close')] = False
+                        if "close" in sort_cols:
+                            ascending[sort_cols.index("close")] = False
                         df = df.sort_values(by=sort_cols, ascending=ascending)
-                        
+
                     market_map = {"TWSE": "上市", "TPEX": "上櫃"}
-                    df['market'] = df['market'].map(lambda x: market_map.get(x, x))
-                    
-                    disp_columns = ['date', 'strategy', 'direction', 'market', 'symbol', 'name', 'industry', 'close', 'volume', 'score']
+                    df["market"] = df["market"].map(lambda x: market_map.get(x, x))
+
+                    disp_columns = [
+                        "date",
+                        "strategy",
+                        "direction",
+                        "market",
+                        "symbol",
+                        "name",
+                        "industry",
+                        "close",
+                        "volume",
+                        "score",
+                    ]
                     for col in disp_columns:
                         if col not in df.columns:
                             df[col] = ""
-                            
+
                     df = df[disp_columns]
-                    df.columns = ['日期', '策略代號', '方向', '市場', '代號', '名稱', '產業', '收盤價', '成交量', '符合度']
-                    df['方向'] = df['方向'].map({"long": "做多", "short": "做空"}).fillna(df['方向'])
-                    df['符合度'] = pd.to_numeric(df['符合度'], errors='coerce').apply(lambda x: f"{x:.0%}" if pd.notna(x) else "")
+                    df.columns = [
+                        "日期",
+                        "策略代號",
+                        "方向",
+                        "市場",
+                        "代號",
+                        "名稱",
+                        "產業",
+                        "收盤價",
+                        "成交量",
+                        "符合度",
+                    ]
+                    df["方向"] = (
+                        df["方向"].map({"long": "做多", "short": "做空"}).fillna(df["方向"])
+                    )
+                    df["符合度"] = pd.to_numeric(df["符合度"], errors="coerce").apply(
+                        lambda x: f"{x:.0%}" if pd.notna(x) else ""
+                    )
                     print(df.to_string(index=False))
-            
+
             elif args.inspect_command == "logs":
                 if args.type == "jobs":
                     data = get_job_logs(session, limit=args.limit)
@@ -1085,18 +1339,20 @@ def main(argv: Optional[List[str]] = None) -> int:
                         print("No job logs found.")
                     else:
                         df = pd.DataFrame(data)
-                        print(df[['start', 'job', 'status', 'in', 'out', 'error']])
+                        print(df[["start", "job", "status", "in", "out", "error"]])
                 else:
                     data = get_quarantine_logs(session, limit=args.limit)
                     if not data:
                         print("No quarantine logs found.")
                     else:
                         df = pd.DataFrame(data)
-                        print(df[df.columns[:8]]) # Show first few columns
+                        print(df[df.columns[:8]])  # Show first few columns
 
             elif args.inspect_command == "intraday-trades":
+                from sqlalchemy import desc, select
+
                 from sentinel.models import IntradayTrade
-                from sqlalchemy import select, desc
+
                 stmt = select(IntradayTrade).order_by(desc(IntradayTrade.entry_date)).limit(50)
                 trades = session.execute(stmt).scalars().all()
                 if not trades:
@@ -1111,45 +1367,50 @@ def main(argv: Optional[List[str]] = None) -> int:
                         "entry": t.entry_price,
                         "exit": t.exit_price,
                         "p/l": t.profit_loss,
-                        "status": t.status
+                        "status": t.status,
                     }
                     for t in trades
                 ]
                 df = pd.DataFrame(data)
-                
+
                 # Merge with stock master for Chinese names
                 stock_master = load_stock_master(settings.stock_master_path)
                 if not stock_master.empty:
-                    df['symbol'] = df['symbol'].astype(str)
-                    stock_master['symbol'] = stock_master['symbol'].astype(str)
+                    df["symbol"] = df["symbol"].astype(str)
+                    stock_master["symbol"] = stock_master["symbol"].astype(str)
                     df = pd.merge(
-                        df, 
-                        stock_master[['market', 'symbol', 'name']], 
-                        on=['market', 'symbol'], 
-                        how='left'
+                        df,
+                        stock_master[["market", "symbol", "name"]],
+                        on=["market", "symbol"],
+                        how="left",
                     )
                 else:
-                    df['name'] = ""
+                    df["name"] = ""
 
                 # Rename and format for display
-                df = df[['entry_date', 'symbol', 'name', 'entry', 'exit', 'p/l', 'status']]
-                df.columns = ['進場日期', '代號', '名稱', '進場價', '出場價', '報酬率', '狀態']
-                
-                df['報酬率'] = df['報酬率'].apply(lambda x: f"{x:.2%}" if pd.notna(x) else "")
-                df['狀態'] = df['狀態'].map({"open": "持有中", "closed": "已平倉"}).fillna(df['狀態'])
-                
+                df = df[["entry_date", "symbol", "name", "entry", "exit", "p/l", "status"]]
+                df.columns = ["進場日期", "代號", "名稱", "進場價", "出場價", "報酬率", "狀態"]
+
+                df["報酬率"] = df["報酬率"].apply(lambda x: f"{x:.2%}" if pd.notna(x) else "")
+                df["狀態"] = (
+                    df["狀態"].map({"open": "持有中", "closed": "已平倉"}).fillna(df["狀態"])
+                )
+
                 # Calculate Summary Statistics
-                closed_df = df[df['狀態'] == '已平倉'].copy()
+                closed_df = df[df["狀態"] == "已平倉"].copy()
                 summary_str = ""
                 if not closed_df.empty:
                     # Ensure 報酬率 is numeric for calculation
-                    numeric_pl = pd.to_numeric(closed_df['報酬率'].str.replace('%', ''), errors='coerce') / 100
+                    numeric_pl = (
+                        pd.to_numeric(closed_df["報酬率"].str.replace("%", ""), errors="coerce")
+                        / 100
+                    )
                     win_rate = (numeric_pl > 0).mean()
                     avg_pl = numeric_pl.mean()
                     total_trades = len(closed_df)
                     win_count = (numeric_pl > 0).sum()
                     loss_count = (numeric_pl <= 0).sum()
-                    
+
                     summary_str = (
                         f"📈 績效總結 (Summary Statistics - 已平倉):\n"
                         f"--------------------------------------------------------------------------------\n"
@@ -1157,25 +1418,25 @@ def main(argv: Optional[List[str]] = None) -> int:
                         f"勝率: {win_rate:.2%} | 平均報酬率: {avg_pl:.2%}\n"
                     )
 
-                pd.set_option('display.unicode.east_asian_width', True)
-                print("\n" + "="*80)
+                pd.set_option("display.unicode.east_asian_width", True)
+                print("\n" + "=" * 80)
                 print("📋 模擬交易日誌 (Intraday Trade Logs)")
-                print("="*80)
+                print("=" * 80)
                 if summary_str:
                     print(summary_str)
                     print("-" * 80)
                 print(df.to_string(index=False))
-                print("="*80 + "\n")
+                print("=" * 80 + "\n")
 
                 if getattr(args, "export", False):
                     report_dir = Path("outputs/reports")
                     report_dir.mkdir(parents=True, exist_ok=True)
                     report_path = report_dir / f"intraday_trades_{date.today().isoformat()}.csv"
-                    df.to_csv(report_path, index=False, encoding='utf-8-sig')
+                    df.to_csv(report_path, index=False, encoding="utf-8-sig")
                     print(f"✅ 報表已匯出至: {report_path}")
-        
+
         return 0
-    
+
     if args.command == "check-stock":
         import json as _json
 
@@ -1195,7 +1456,11 @@ def main(argv: Optional[List[str]] = None) -> int:
             print(f"⚠️  找不到股票代號 {args.symbol}，請確認 dataset 是否已同步。")
             return 1
 
-        trading_date = parse_iso_date(args.date) if args.date else pd.to_datetime(stock_prices["trading_date"]).dt.date.max()
+        trading_date = (
+            parse_iso_date(args.date)
+            if args.date
+            else pd.to_datetime(stock_prices["trading_date"]).dt.date.max()
+        )
 
         enriched = compute_indicators(stock_prices)
 
@@ -1211,22 +1476,29 @@ def main(argv: Optional[List[str]] = None) -> int:
         runnable, not_runnable = [], []
         for sig in signals:
             params = sig.get("params", {})
-            if sig.get("requires_intraday") or sig.get("requires_market_breadth") or sig.get("requires_gap_detection") or not sig.get("is_active", True):
+            if (
+                sig.get("requires_intraday")
+                or sig.get("requires_market_breadth")
+                or sig.get("requires_gap_detection")
+                or not sig.get("is_active", True)
+            ):
                 not_runnable.append(sig)
                 continue
-            runnable.append({
-                "strategy_id": sig["signal_id"],
-                "name": sig["name"],
-                "version": sig.get("version", "1.0.0"),
-                "description": sig.get("description", ""),
-                "is_active": True,
-                "params_json": {
-                    "min_history_days": params.get("min_history_days", 25),
-                    "direction": sig.get("direction", "long"),
-                    "conditions": params.get("conditions", []),
-                },
-                "backtest": {},
-            })
+            runnable.append(
+                {
+                    "strategy_id": sig["signal_id"],
+                    "name": sig["name"],
+                    "version": sig.get("version", "1.0.0"),
+                    "description": sig.get("description", ""),
+                    "is_active": True,
+                    "params_json": {
+                        "min_history_days": params.get("min_history_days", 25),
+                        "direction": sig.get("direction", "long"),
+                        "conditions": params.get("conditions", []),
+                    },
+                    "backtest": {},
+                }
+            )
 
         results = scan_strategies(enriched, trading_date, runnable) if runnable else pd.DataFrame()
         triggered = set(results["strategy_id"].tolist()) if not results.empty else set()
@@ -1244,9 +1516,19 @@ def main(argv: Optional[List[str]] = None) -> int:
             for c in conds.get("conditions", []):
                 mark = "✅" if c.get("passed") else "  "
                 val, ref = c.get("value"), c.get("reference")
-                val_str = f"{val:.2f}" if isinstance(val, float) else (str(val) if val is not None else "?")
-                ref_str = f"{ref:.2f}" if isinstance(ref, float) else (str(ref) if ref is not None else "?")
-                lines.append(f"       {mark} {c.get('name','')}: {val_str} {c.get('operator','')} {ref_str}")
+                val_str = (
+                    f"{val:.2f}"
+                    if isinstance(val, float)
+                    else (str(val) if val is not None else "?")
+                )
+                ref_str = (
+                    f"{ref:.2f}"
+                    if isinstance(ref, float)
+                    else (str(ref) if ref is not None else "?")
+                )
+                lines.append(
+                    f"       {mark} {c.get('name','')}: {val_str} {c.get('operator','')} {ref_str}"
+                )
             return "\n".join(lines)
 
         W = 62
@@ -1256,7 +1538,9 @@ def main(argv: Optional[List[str]] = None) -> int:
         print("╚" + "═" * W + "╝")
 
         long_sigs = [s for s in runnable if s["params_json"].get("direction") == "long"]
-        warn_sigs = [s for s in runnable if s["params_json"].get("direction") in ("warning", "short")]
+        warn_sigs = [
+            s for s in runnable if s["params_json"].get("direction") in ("warning", "short")
+        ]
 
         if long_sigs:
             print("\n📈 做多進場訊號")
@@ -1323,7 +1607,9 @@ def main(argv: Optional[List[str]] = None) -> int:
                 continue
 
             symbols = market_stocks["symbol"].astype(str).tolist()
-            print(f"🔄 從 Yahoo Finance 補抓 {market} {start_date} ~ {end_date}（{len(symbols)} 支股票）...")
+            print(
+                f"🔄 從 Yahoo Finance 補抓 {market} {start_date} ~ {end_date}（{len(symbols)} 支股票）..."
+            )
 
             fetched = fetch_yahoo_historical(
                 market=market,
@@ -1348,9 +1634,13 @@ def main(argv: Optional[List[str]] = None) -> int:
 
             if engine:
                 from sqlalchemy.orm import Session
+
                 from sentinel.persistence import upsert_daily_prices
+
                 with Session(engine) as session:
-                    upsert_daily_prices(session=session, prices=fetched, data_version=settings.data_version)
+                    upsert_daily_prices(
+                        session=session, prices=fetched, data_version=settings.data_version
+                    )
                     session.commit()
 
         save_price_dataset(existing_prices, dataset_path)
@@ -1361,37 +1651,40 @@ def main(argv: Optional[List[str]] = None) -> int:
         database_url = args.database_url or settings.database_url
         if not database_url:
             parser.error("--database-url is required or set TS_DATABASE_URL in the environment")
-        
+
         engine = create_db_engine(database_url)
         create_schema(engine)
-        
-        from sqlalchemy.orm import Session
+
         from datetime import timedelta
-        
+
+        from sqlalchemy.orm import Session
+
         markets = args.markets or ["TWSE", "TPEX"]
         today = date.today()
-        
+
         with Session(engine) as session:
             latest_dates = get_latest_dates_by_market(session)
-        
+
         # 決定同步的起始日期：找所有市場中最舊的最後更新日
         # 如果某個市場沒資料，預設從 2024-01-01 開始
         relevant_latest_dates = [latest_dates.get(m) for m in markets if latest_dates.get(m)]
-        
+
         if len(relevant_latest_dates) < len(markets):
             # 至少有一個市場沒資料
             start_date = date(2024, 1, 1)
         else:
             start_date = min(relevant_latest_dates) + timedelta(days=1)
-        
+
         end_date = today
-        
+
         if start_date > end_date:
-            print(f"✅ 資料已是最新狀態 (最後日期: {max(relevant_latest_dates) if relevant_latest_dates else 'N/A'})")
+            print(
+                f"✅ 資料已是最新狀態 (最後日期: {max(relevant_latest_dates) if relevant_latest_dates else 'N/A'})"
+            )
             return 0
-            
+
         print(f"🔄 開始自動同步資料: {start_date} -> {end_date} (市場: {', '.join(markets)})")
-        
+
         # 設定為 run 指令的參數，複用後面的 pipeline 邏輯
         args.start_date = start_date.isoformat()
         args.end_date = end_date.isoformat()
@@ -1417,8 +1710,9 @@ def main(argv: Optional[List[str]] = None) -> int:
         engine = create_db_engine(database_url)
         create_schema(engine)
 
-        from sentinel.persistence import backfill_aggregated_bars
         from sqlalchemy.orm import Session
+
+        from sentinel.persistence import backfill_aggregated_bars
 
         prices = load_price_dataset(dataset_path)
         logger.info("backfill_aggregated_bars_started", extra={"rows": len(prices)})
@@ -1450,7 +1744,9 @@ def main(argv: Optional[List[str]] = None) -> int:
     if engine:
         create_schema(engine)
     stock_master = load_stock_master(settings.stock_master_path)
-    strategy_definitions = load_strategy_definitions(args.strategy_path or settings.strategy_config_path)
+    strategy_definitions = load_strategy_definitions(
+        args.strategy_path or settings.strategy_config_path
+    )
 
     logger.info(
         "pipeline_started",
@@ -1532,12 +1828,14 @@ def main(argv: Optional[List[str]] = None) -> int:
 
         if args.skip_strategies:
             logger.info("skipping_strategies_as_requested")
-            scan_results = pd.DataFrame() # Empty result
+            scan_results = pd.DataFrame()  # Empty result
         else:
-            scan_results = scan_strategy(enriched_prices, trading_date=trading_date, strategies=strategy_definitions)
+            scan_results = scan_strategy(
+                enriched_prices, trading_date=trading_date, strategies=strategy_definitions
+            )
             if args.direction:
                 scan_results = scan_results[scan_results["direction"] == args.direction].copy()
-            
+
             # Enrich with verification data from enriched_prices (ma20, prev_close)
             if not scan_results.empty:
                 # Extract columns for current trading_date
@@ -1545,10 +1843,7 @@ def main(argv: Optional[List[str]] = None) -> int:
                     ["market", "symbol", "ma20", "prev_close"]
                 ].copy()
                 scan_results = pd.merge(
-                    scan_results,
-                    verif_data,
-                    on=["market", "symbol"],
-                    how="left"
+                    scan_results, verif_data, on=["market", "symbol"], how="left"
                 )
 
             # Enrich with industry info
@@ -1560,7 +1855,7 @@ def main(argv: Optional[List[str]] = None) -> int:
                     scan_results,
                     stock_master_copy[["market", "symbol", "industry"]],
                     on=["market", "symbol"],
-                    how="left"
+                    how="left",
                 )
             elif not scan_results.empty:
                 scan_results["industry"] = "未知"
@@ -1582,7 +1877,9 @@ def main(argv: Optional[List[str]] = None) -> int:
             completeness_universe_frames.append(merged_prices)
         if not invalid_prices.empty:
             completeness_universe_frames.append(
-                invalid_prices[[column for column in merged_prices.columns if column in invalid_prices.columns]]
+                invalid_prices[
+                    [column for column in merged_prices.columns if column in invalid_prices.columns]
+                ]
             )
         completeness_universe = (
             pd.concat(completeness_universe_frames, ignore_index=True)
@@ -1608,9 +1905,15 @@ def main(argv: Optional[List[str]] = None) -> int:
 
         persisted_counts = {}
         if engine:
-            indicator_scope = enriched_prices[
-                enriched_prices["trading_date"].isin(pd.to_datetime(valid_prices["trading_date"]).dt.date.tolist())
-            ].copy() if not valid_prices.empty else enriched_prices.iloc[0:0].copy()
+            indicator_scope = (
+                enriched_prices[
+                    enriched_prices["trading_date"].isin(
+                        pd.to_datetime(valid_prices["trading_date"]).dt.date.tolist()
+                    )
+                ].copy()
+                if not valid_prices.empty
+                else enriched_prices.iloc[0:0].copy()
+            )
             persisted_counts = persist_pipeline_results(
                 engine=engine,
                 prices=valid_prices,
@@ -1647,55 +1950,83 @@ def main(argv: Optional[List[str]] = None) -> int:
                 "persisted_counts": persisted_counts,
             },
         )
-        
-        print("\n" + "="*60)
+
+        print("\n" + "=" * 60)
         print("📊 執行完畢 - 策略掃描結果")
-        print("="*60)
+        print("=" * 60)
         print(f"📄 掃描結果 (MD): {artifacts['md']}")
-        pd.set_option('display.unicode.east_asian_width', True)
+        pd.set_option("display.unicode.east_asian_width", True)
         if not scan_results.empty:
             disp_scan = scan_results.copy()
             if stock_master is not None and not stock_master.empty:
-                disp_scan['symbol'] = disp_scan['symbol'].astype(str)
-                stock_master['symbol'] = stock_master['symbol'].astype(str)
+                disp_scan["symbol"] = disp_scan["symbol"].astype(str)
+                stock_master["symbol"] = stock_master["symbol"].astype(str)
                 # Only merge if industry is not already present
-                if 'industry' not in disp_scan.columns:
+                if "industry" not in disp_scan.columns:
                     disp_scan = pd.merge(
-                        disp_scan, 
-                        stock_master[['market', 'symbol', 'industry']], 
-                        on=['market', 'symbol'], 
-                        how='left'
+                        disp_scan,
+                        stock_master[["market", "symbol", "industry"]],
+                        on=["market", "symbol"],
+                        how="left",
                     )
-            elif 'industry' not in disp_scan.columns:
-                disp_scan['industry'] = ""
-            
+            elif "industry" not in disp_scan.columns:
+                disp_scan["industry"] = ""
+
             # Sort by Strategy, Industry, Close
             sort_cols = []
-            if 'strategy_name' in disp_scan.columns: sort_cols.append('strategy_name')
-            if 'industry' in disp_scan.columns: sort_cols.append('industry')
-            if 'close' in disp_scan.columns: sort_cols.append('close')
+            if "strategy_name" in disp_scan.columns:
+                sort_cols.append("strategy_name")
+            if "industry" in disp_scan.columns:
+                sort_cols.append("industry")
+            if "close" in disp_scan.columns:
+                sort_cols.append("close")
             if sort_cols:
                 ascending = [True] * len(sort_cols)
-                if 'close' in sort_cols: ascending[sort_cols.index('close')] = False
+                if "close" in sort_cols:
+                    ascending[sort_cols.index("close")] = False
                 disp_scan = disp_scan.sort_values(by=sort_cols, ascending=ascending)
-                
+
             market_map = {"TWSE": "上市", "TPEX": "上櫃"}
-            disp_scan['market'] = disp_scan['market'].map(lambda x: market_map.get(x, x))
-            
-            disp_columns = ['trading_date', 'strategy_name', 'direction', 'market', 'symbol', 'name', 'industry', 'close', 'score']
+            disp_scan["market"] = disp_scan["market"].map(lambda x: market_map.get(x, x))
+
+            disp_columns = [
+                "trading_date",
+                "strategy_name",
+                "direction",
+                "market",
+                "symbol",
+                "name",
+                "industry",
+                "close",
+                "score",
+            ]
             for col in disp_columns:
                 if col not in disp_scan.columns:
                     disp_scan[col] = ""
-                    
+
             disp_scan = disp_scan[disp_columns]
-            disp_scan.columns = ['日期', '策略名稱', '方向', '市場', '代號', '名稱', '產業', '收盤價', '符合度']
-            disp_scan['方向'] = disp_scan['方向'].map({"long": "做多", "short": "做空"}).fillna(disp_scan['方向'])
-            disp_scan['符合度'] = pd.to_numeric(disp_scan['符合度'], errors='coerce').apply(lambda x: f"{x:.0%}" if pd.notna(x) else "")
+            disp_scan.columns = [
+                "日期",
+                "策略名稱",
+                "方向",
+                "市場",
+                "代號",
+                "名稱",
+                "產業",
+                "收盤價",
+                "符合度",
+            ]
+            disp_scan["方向"] = (
+                disp_scan["方向"].map({"long": "做多", "short": "做空"}).fillna(disp_scan["方向"])
+            )
+            disp_scan["符合度"] = pd.to_numeric(disp_scan["符合度"], errors="coerce").apply(
+                lambda x: f"{x:.0%}" if pd.notna(x) else ""
+            )
             print(disp_scan.to_string(index=False))
         else:
             print("無符合策略的股票。")
-        print("="*60 + "\n")
-        
+        print("=" * 60 + "\n")
+
         return 0
     except Exception as exc:
         if engine:

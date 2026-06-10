@@ -15,7 +15,8 @@ def build_run_completeness_summary(
 ) -> Dict[str, object]:
     normalized_markets = [str(market).upper() for market in markets]
     trading_days = trading_calendar[
-        trading_calendar["exchange"].isin(normalized_markets) & trading_calendar["is_trading_day"].eq(True)
+        trading_calendar["exchange"].isin(normalized_markets)
+        & trading_calendar["is_trading_day"].eq(True)
     ].copy()
     trading_days["exchange"] = trading_days["exchange"].astype(str).str.upper()
 
@@ -24,8 +25,12 @@ def build_run_completeness_summary(
         market_universe = stock_master[["market", "symbol", "list_status"]].copy()
         market_universe["market"] = market_universe["market"].astype(str).str.upper()
         market_universe["symbol"] = market_universe["symbol"].astype(str).str.strip()
-        market_universe["list_status"] = market_universe["list_status"].astype(str).str.lower().str.strip()
-        market_universe = market_universe[market_universe["list_status"] == "active"][["market", "symbol"]].drop_duplicates()
+        market_universe["list_status"] = (
+            market_universe["list_status"].astype(str).str.lower().str.strip()
+        )
+        market_universe = market_universe[market_universe["list_status"] == "active"][
+            ["market", "symbol"]
+        ].drop_duplicates()
         basis = "active_stocks_master"
     elif universe_prices.empty:
         market_universe = pd.DataFrame(columns=["market", "symbol"])
@@ -44,12 +49,20 @@ def build_run_completeness_summary(
         trading_day_count = int(
             trading_days.loc[trading_days["exchange"] == market, "calendar_date"].nunique()
         )
-        symbol_count = int(market_universe.loc[market_universe["market"] == market, "symbol"].nunique())
+        symbol_count = int(
+            market_universe.loc[market_universe["market"] == market, "symbol"].nunique()
+        )
         expected_rows = symbol_count * trading_day_count
-        market_symbols = set(market_universe.loc[market_universe["market"] == market, "symbol"].tolist())
+        market_symbols = set(
+            market_universe.loc[market_universe["market"] == market, "symbol"].tolist()
+        )
         valid_market_data = valid_prices[valid_prices["market"].astype(str).str.upper() == market]
-        actual_rows = int(valid_market_data[valid_market_data["symbol"].isin(market_symbols)].shape[0])
-        quarantined_rows = int(invalid_prices.loc[invalid_prices["market"].astype(str).str.upper() == market].shape[0])
+        actual_rows = int(
+            valid_market_data[valid_market_data["symbol"].isin(market_symbols)].shape[0]
+        )
+        quarantined_rows = int(
+            invalid_prices.loc[invalid_prices["market"].astype(str).str.upper() == market].shape[0]
+        )
         completeness_pct = round(actual_rows / expected_rows, 6) if expected_rows > 0 else None
 
         total_expected += expected_rows

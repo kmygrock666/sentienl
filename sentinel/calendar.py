@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from datetime import date
 import json
+from datetime import date
 from pathlib import Path
 from typing import Dict, Iterable, List, Optional, Set
 
@@ -115,7 +115,9 @@ def save_trading_calendar(
 
     export_frame = trading_calendar.copy()
     if not export_frame.empty and "calendar_date" in export_frame.columns:
-        export_frame["calendar_date"] = pd.to_datetime(export_frame["calendar_date"]).dt.strftime("%Y-%m-%d")
+        export_frame["calendar_date"] = pd.to_datetime(export_frame["calendar_date"]).dt.strftime(
+            "%Y-%m-%d"
+        )
 
     export_frame.to_csv(csv_path, index=False, encoding="utf-8")
     json_path.write_text(

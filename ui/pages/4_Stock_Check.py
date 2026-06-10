@@ -1,4 +1,5 @@
 """Stock Check — 個股訊號規則判讀面板（v2）。"""
+
 from __future__ import annotations
 
 import json
@@ -36,7 +37,9 @@ def _lookup_names(symbols: list[str]) -> dict[str, str]:
         return {}
     try:
         from sqlalchemy.orm import Session
+
         from sentinel.models import Stock
+
         engine = get_engine()
         with Session(engine) as s:
             rows = s.query(Stock.symbol, Stock.name).filter(Stock.symbol.in_(symbols)).all()
@@ -72,9 +75,7 @@ def _load_watchlist() -> list[WatchItem]:
 
 
 def _save_watchlist(items: list[WatchItem]) -> None:
-    _WATCHLIST_PATH.write_text(
-        json.dumps(items, ensure_ascii=False, indent=2), encoding="utf-8"
-    )
+    _WATCHLIST_PATH.write_text(json.dumps(items, ensure_ascii=False, indent=2), encoding="utf-8")
 
 
 def _wl_symbols(items: list[WatchItem]) -> set[str]:
@@ -103,7 +104,9 @@ with st.form("check_stock_form"):
     check_date = c2.date_input("交易日（留空=最新）", value=None)
 
     with st.expander("進階選項"):
-        signal_path = st.text_input("訊號設定檔路徑（留空=預設）", placeholder="config/signals.json")
+        signal_path = st.text_input(
+            "訊號設定檔路徑（留空=預設）", placeholder="config/signals.json"
+        )
         dataset_path = st.text_input("資料集路徑（留空=預設）")
 
     preview_params: dict = {}
@@ -217,10 +220,10 @@ if not visible:
 # ── 訊號卡片 ────────────────────────────────────────────────────────────────
 _DIR_LABEL = {"long": "做多進場", "warning": "警示 / 出場", "intraday": "需盤中資料"}
 _STATUS_CSS = {
-    "triggered_long":    ("border-left:3px solid #3FA66B; background:#1a2e22;", "✅", "#3FA66B"),
+    "triggered_long": ("border-left:3px solid #3FA66B; background:#1a2e22;", "✅", "#3FA66B"),
     "triggered_warning": ("border-left:3px solid #E0A94A; background:#2e2a1a;", "🔴", "#E0A94A"),
-    "not_triggered":     ("border-left:3px solid #4a5568; background:#1a1f24;", "❌", "#9AA6B2"),
-    "needs_intraday":    ("border-left:3px solid #3D6E8F; background:#1a222e;", "⚙️", "#3D6E8F"),
+    "not_triggered": ("border-left:3px solid #4a5568; background:#1a1f24;", "❌", "#9AA6B2"),
+    "needs_intraday": ("border-left:3px solid #3D6E8F; background:#1a222e;", "⚙️", "#3D6E8F"),
 }
 
 
@@ -238,7 +241,9 @@ for idx, sig in enumerate(visible):
     ck = _card_key(sig)
     css, icon, color = _STATUS_CSS[ck]
     dir_label = _DIR_LABEL.get(sig["direction"], sig["direction"])
-    cond_summary = f"{sig['passed_count']}/{sig['total_count']} 條件通過" if sig["total_count"] > 0 else ""
+    cond_summary = (
+        f"{sig['passed_count']}/{sig['total_count']} 條件通過" if sig["total_count"] > 0 else ""
+    )
 
     with st.container():
         st.markdown(
@@ -246,12 +251,20 @@ for idx, sig in enumerate(visible):
             f'<span style="font-size:1.1rem">{icon}</span> '
             f'<strong style="color:{color}">{sig["name"]}</strong>'
             f'<span style="color:var(--text-1);font-size:0.78rem;margin-left:0.5rem">'
-            f'[{dir_label}]</span>'
-            + (f'<span style="color:var(--text-1);font-size:0.78rem;margin-left:0.5rem">'
-               f'· {cond_summary}</span>' if cond_summary else '')
-            + (f'<span style="color:var(--text-1);font-size:0.78rem;margin-left:0.5rem">'
-               f'— {sig["source_rule"]}</span>' if sig.get("source_rule") else '')
-            + '</div>',
+            f"[{dir_label}]</span>"
+            + (
+                f'<span style="color:var(--text-1);font-size:0.78rem;margin-left:0.5rem">'
+                f"· {cond_summary}</span>"
+                if cond_summary
+                else ""
+            )
+            + (
+                f'<span style="color:var(--text-1);font-size:0.78rem;margin-left:0.5rem">'
+                f'— {sig["source_rule"]}</span>'
+                if sig.get("source_rule")
+                else ""
+            )
+            + "</div>",
             unsafe_allow_html=True,
         )
 
@@ -276,9 +289,7 @@ for idx, sig in enumerate(visible):
                     fail_text = "；".join(c["text"] for c in failed[:3])
                     st.markdown(
                         f'<div style="margin-left:1rem;color:#9AA6B2;font-size:0.80rem">'
-                        f'未達條件：{fail_text}'
-                        + (" 等..." if len(failed) > 3 else "")
-                        + "</div>",
+                        f"未達條件：{fail_text}" + (" 等..." if len(failed) > 3 else "") + "</div>",
                         unsafe_allow_html=True,
                     )
                     if len(sig["conditions"]) > 3:
@@ -304,12 +315,21 @@ st.divider()
 section_header("快捷操作")
 qa1, qa2, qa3 = st.columns(3)
 if meta.get("date"):
-    qa1.page_link("pages/3_Daily_Scan.py", label=f"📊 帶入 {meta['date']} 到 Daily Scan", use_container_width=True)
+    qa1.page_link(
+        "pages/3_Daily_Scan.py",
+        label=f"📊 帶入 {meta['date']} 到 Daily Scan",
+        use_container_width=True,
+    )
 if meta.get("symbol"):
-    qa2.page_link("pages/7_Inspect.py", label=f"🔍 前往 Inspect 查看{meta['symbol']}", use_container_width=True)
+    qa2.page_link(
+        "pages/7_Inspect.py",
+        label=f"🔍 前往 Inspect 查看{meta['symbol']}",
+        use_container_width=True,
+    )
 
 # Copy params
 import json as _json
+
 params_copy = {}
 if meta.get("symbol"):
     params_copy["symbol"] = meta["symbol"]

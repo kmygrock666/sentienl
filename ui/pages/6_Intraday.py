@@ -1,4 +1,5 @@
 """Intraday — 盤中監控與操作頁面（Phase C）。"""
+
 from __future__ import annotations
 
 import io
@@ -36,9 +37,9 @@ st.caption("盤中快照、明日之星掃描、模擬交易監控")
 store = get_store()
 poll_all_running()
 
-tab_snapshot, tab_run, tab_trades, tab_scheduler = st.tabs([
-    "盤中快照", "明日之星掃描", "模擬交易", "Scheduler"
-])
+tab_snapshot, tab_run, tab_trades, tab_scheduler = st.tabs(
+    ["盤中快照", "明日之星掃描", "模擬交易", "Scheduler"]
+)
 
 
 def _parse_tomorrow_star_table(stdout: str) -> pd.DataFrame | None:
@@ -98,7 +99,9 @@ with tab_snapshot:
         section_header("擷取盤中快照（capture-intraday-snapshot）")
         sn1, sn2 = st.columns(2)
         snap_time = sn1.text_input("快照時間標籤", value="12:00", key="snap_time_f")
-        snap_top = sn2.number_input("Top N 檔", value=300, min_value=50, max_value=1000, key="snap_top_f")
+        snap_top = sn2.number_input(
+            "Top N 檔", value=300, min_value=50, max_value=1000, key="snap_top_f"
+        )
         params_snap = {"time": snap_time, "top": int(snap_top)}
         render_command_preview(CAPTURE_SNAPSHOT, params_snap)
         if st.button("▶ 擷取快照", key="btn_snap_f"):
@@ -175,7 +178,9 @@ with tab_trades:
 
     with st.expander("查看全部交易紀錄（含已結算）"):
         if not _all_df.empty:
-            st.dataframe(_all_df.drop(columns=["trade_id"]), use_container_width=True, hide_index=True)
+            st.dataframe(
+                _all_df.drop(columns=["trade_id"]), use_container_width=True, hide_index=True
+            )
         else:
             st.info("尚無任何交易紀錄")
 
@@ -282,7 +287,9 @@ with tab_scheduler:
     scheduler_tasks = [t for t in store.list_all() if t.command_id == "scheduler"]
     running_schedulers = [t for t in scheduler_tasks if t.status == "running"]
     if running_schedulers:
-        st.success(f"✅ Scheduler 已在執行中（Task #{running_schedulers[0].task_id}，PID {running_schedulers[0].pid}）")
+        st.success(
+            f"✅ Scheduler 已在執行中（Task #{running_schedulers[0].task_id}，PID {running_schedulers[0].pid}）"
+        )
     else:
         if st.button("▶ 啟動 Scheduler", key="btn_scheduler"):
             task = launch_task(SCHEDULER, {})

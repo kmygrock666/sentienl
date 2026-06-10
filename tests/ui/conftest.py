@@ -1,4 +1,5 @@
 """UI 測試 conftest：確保 ui 套件路徑在測試中可用。"""
+
 from __future__ import annotations
 
 import sys

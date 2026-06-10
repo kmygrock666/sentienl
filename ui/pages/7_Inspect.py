@@ -2,6 +2,7 @@
 
 子頁籤：status | completeness | results | logs | intraday-trades
 """
+
 from __future__ import annotations
 
 import pathlib
@@ -49,9 +50,9 @@ except Exception as e:
     st.error(str(e))
     db_ok = False
 
-tab_status, tab_completeness, tab_results, tab_logs, tab_intraday = st.tabs([
-    "Status", "Completeness", "Results", "Logs", "Intraday Trades"
-])
+tab_status, tab_completeness, tab_results, tab_logs, tab_intraday = st.tabs(
+    ["Status", "Completeness", "Results", "Logs", "Intraday Trades"]
+)
 
 
 def _show_cli_task(task_key: str) -> None:
@@ -88,7 +89,9 @@ with tab_status:
         section_header("DB 直讀摘要")
         fresh_df = get_data_freshness(engine)
         if not fresh_df.empty:
-            render_df(fresh_df, title="股價資料新鮮度", download_filename="freshness.csv", height=200)
+            render_df(
+                fresh_df, title="股價資料新鮮度", download_filename="freshness.csv", height=200
+            )
         else:
             st.info("尚無股價資料")
         quar = get_quarantine_summary(engine)
@@ -96,7 +99,9 @@ with tab_status:
         c1.metric("隔離記錄總數", quar["total"])
         c2.metric("待處理隔離", quar["pending"])
         if not quar["recent"].empty:
-            render_df(quar["recent"], title="最近隔離記錄", download_filename="quarantine.csv", height=200)
+            render_df(
+                quar["recent"], title="最近隔離記錄", download_filename="quarantine.csv", height=200
+            )
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -138,10 +143,13 @@ with tab_results:
         sel_dir = r2.selectbox("方向", ["全部", "long", "short"], key="res_dir")
         sel_strat = r3.selectbox("策略", ["全部"] + available_strats, key="res_strat")
         sel_mkt = r4.selectbox("市場", ["全部", "TWSE", "TPEX"], key="res_mkt")
-        limit = r5.number_input("最大筆數", value=100, min_value=1, max_value=1000, step=50, key="res_lim")
+        limit = r5.number_input(
+            "最大筆數", value=100, min_value=1, max_value=1000, step=50, key="res_lim"
+        )
 
         q_date = (
-            date.fromisoformat(sel_date) if sel_date != "最新"
+            date.fromisoformat(sel_date)
+            if sel_date != "最新"
             else (available_dates[0] if available_dates else None)
         )
         q_dir = sel_dir if sel_dir != "全部" else None
@@ -168,7 +176,9 @@ with tab_results:
         cli_strat = cli_cols[0].text_input("策略 ID", key="cli_res_strat")
         cli_date = cli_cols[1].date_input("日期", value=None, key="cli_res_date")
         cli_dir = cli_cols[2].selectbox("方向", ["", "long", "short"], key="cli_res_dir")
-        cli_limit = cli_cols[3].number_input("最大筆數", value=50, min_value=1, max_value=500, key="cli_res_lim")
+        cli_limit = cli_cols[3].number_input(
+            "最大筆數", value=50, min_value=1, max_value=500, key="cli_res_lim"
+        )
 
         params_r: dict = {"limit": int(cli_limit)}
         if cli_strat:

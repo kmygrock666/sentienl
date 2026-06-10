@@ -72,11 +72,12 @@ def candlestick_chart(
             )
 
     colors = [
-        "#ef4444" if c >= o else "#22c55e"
-        for c, o in zip(price_df["close"], price_df["open"])
+        "#ef4444" if c >= o else "#22c55e" for c, o in zip(price_df["close"], price_df["open"])
     ]
     fig.add_trace(
-        go.Bar(x=price_df["trading_date"], y=price_df["volume"], name="成交量", marker_color=colors),
+        go.Bar(
+            x=price_df["trading_date"], y=price_df["volume"], name="成交量", marker_color=colors
+        ),
         row=2,
         col=1,
     )

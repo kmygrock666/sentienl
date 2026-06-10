@@ -54,7 +54,7 @@ def import_minute_bars_csv(
         # Commit every 10 chunks to avoid massive memory usage (approx 1M source rows)
         if chunk_count % 10 == 0:
             intraday_session.commit()
-            
+
         # Log progress for every chunk to keep user informed
         logger.info(
             "import_progress",
@@ -70,8 +70,7 @@ def import_minute_bars_csv(
 
 
 def _aggregate_chunk_to_5min(
-    chunk: pd.DataFrame, 
-    symbol_market_map: Optional[dict[str, str]] = None
+    chunk: pd.DataFrame, symbol_market_map: Optional[dict[str, str]] = None
 ) -> pd.DataFrame:
     """將 1m K 線 chunk 聚合為 5m K 線。"""
     df = chunk.copy()
@@ -91,7 +90,7 @@ def _aggregate_chunk_to_5min(
         df["market"] = df["symbol"].map(symbol_market_map)
     else:
         df["market"] = df["exchange"].str.lower().map(EXCHANGE_TO_MARKET)
-        
+
     df = df.dropna(subset=["market"])
 
     # 確保數值欄位
@@ -111,8 +110,14 @@ def _aggregate_chunk_to_5min(
 
     # 取 source 欄位（來自原始資料）
     if "source" in df.columns:
-        source_map = df.groupby(["market", "symbol", "trading_date", "bar_time"])["source"].first().reset_index()
-        aggregated = aggregated.merge(source_map, on=["market", "symbol", "trading_date", "bar_time"], how="left")
+        source_map = (
+            df.groupby(["market", "symbol", "trading_date", "bar_time"])["source"]
+            .first()
+            .reset_index()
+        )
+        aggregated = aggregated.merge(
+            source_map, on=["market", "symbol", "trading_date", "bar_time"], how="left"
+        )
     else:
         aggregated["source"] = "finmind"
 
@@ -151,7 +156,8 @@ def load_5min_bars(
     end_date: date,
 ) -> pd.DataFrame:
     """查詢特定股票在日期範圍內的 5m K 線。"""
-    stmt = text("""
+    stmt = text(
+        """
         SELECT market, symbol, trading_date, bar_time,
                open, high, low, close, volume
         FROM minute_bars
@@ -160,7 +166,8 @@ def load_5min_bars(
           AND trading_date >= :start_date
           AND trading_date <= :end_date
         ORDER BY trading_date, bar_time
-    """)
+    """
+    )
     result = intraday_session.execute(
         stmt,
         {"market": market, "symbol": symbol, "start_date": start_date, "end_date": end_date},
@@ -169,8 +176,20 @@ def load_5min_bars(
     if not rows:
         return pd.DataFrame()
 
-    df = pd.DataFrame(rows, columns=["market", "symbol", "trading_date", "bar_time",
-                                      "open", "high", "low", "close", "volume"])
+    df = pd.DataFrame(
+        rows,
+        columns=[
+            "market",
+            "symbol",
+            "trading_date",
+            "bar_time",
+            "open",
+            "high",
+            "low",
+            "close",
+            "volume",
+        ],
+    )
     for col in ["open", "high", "low", "close"]:
         df[col] = pd.to_numeric(df[col], errors="coerce")
     df["volume"] = pd.to_numeric(df["volume"], errors="coerce").fillna(0).astype(int)
@@ -252,11 +271,13 @@ def get_prev_close(
     target_date: date,
 ) -> Optional[float]:
     """從 daily_prices 取得前一交易日收盤價。"""
-    stmt = text("""
+    stmt = text(
+        """
         SELECT close FROM daily_prices
         WHERE market = :market AND symbol = :symbol AND trading_date < :target_date
         ORDER BY trading_date DESC LIMIT 1
-    """)
+    """
+    )
     result = daily_session.execute(
         stmt, {"market": market, "symbol": symbol, "target_date": target_date}
     )

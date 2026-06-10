@@ -2,6 +2,7 @@
 
 新增 CLI 指令時只需在此新增 CommandSpec，無需修改頁面程式碼。
 """
+
 from __future__ import annotations
 
 import shlex
@@ -98,7 +99,9 @@ INIT_DB = CommandSpec(
     description="初始化資料庫 Schema（首次執行或 Schema 升級後執行）",
     argv_base=_sentinel_base() + ["init-db"],
     fields=[
-        FieldSpec("database-url", "text", label="資料庫 URL", help="留空使用環境變數 TS_DATABASE_URL"),
+        FieldSpec(
+            "database-url", "text", label="資料庫 URL", help="留空使用環境變數 TS_DATABASE_URL"
+        ),
     ],
     is_long_task=False,
     page_slot="data_sync",
@@ -266,7 +269,14 @@ IMPORT_MINUTE_BARS = CommandSpec(
     argv_base=_sentinel_base() + ["import-minute-bars"],
     fields=[
         FieldSpec("csv", "path", required=True, label="CSV 檔案路徑"),
-        FieldSpec("chunk-size", "number", label="每批處理行數", default=100000, min_val=1000, max_val=1000000),
+        FieldSpec(
+            "chunk-size",
+            "number",
+            label="每批處理行數",
+            default=100000,
+            min_val=1000,
+            max_val=1000000,
+        ),
         FieldSpec("database-url", "text", label="主資料庫 URL"),
         FieldSpec("intraday-database-url", "text", label="日內資料庫 URL"),
     ],
@@ -328,8 +338,18 @@ UPDATE_INTRADAY_STATS = CommandSpec(
     description="更新日內策略歷史勝率統計",
     argv_base=_sentinel_base() + ["update-intraday-stats"],
     fields=[
-        FieldSpec("lookback-days", "number", label="回溯天數", default=180, min_val=30, max_val=730),
-        FieldSpec("gain-threshold", "number", label="獲利門檻", default=0.05, min_val=0.01, max_val=0.5, step=0.01),
+        FieldSpec(
+            "lookback-days", "number", label="回溯天數", default=180, min_val=30, max_val=730
+        ),
+        FieldSpec(
+            "gain-threshold",
+            "number",
+            label="獲利門檻",
+            default=0.05,
+            min_val=0.01,
+            max_val=0.5,
+            step=0.01,
+        ),
         FieldSpec("min-samples", "number", label="最低樣本數", default=5, min_val=1, max_val=50),
         FieldSpec("database-url", "text", label="資料庫 URL"),
     ],
@@ -355,7 +375,15 @@ RUN_INTRADAY = CommandSpec(
     argv_base=_sentinel_base() + ["run-intraday"],
     fields=[
         FieldSpec("top", "number", label="監控量排前 N 檔", default=300, min_val=50, max_val=1000),
-        FieldSpec("min-gain", "number", label="最低漲幅門檻", default=0.075, min_val=0.01, max_val=0.3, step=0.005),
+        FieldSpec(
+            "min-gain",
+            "number",
+            label="最低漲幅門檻",
+            default=0.075,
+            min_val=0.01,
+            max_val=0.3,
+            step=0.005,
+        ),
         FieldSpec("notify-telegram", "checkbox", label="傳送 Telegram 通知"),
         FieldSpec("database-url", "text", label="資料庫 URL"),
     ],
@@ -387,7 +415,15 @@ MONITOR_INTRADAY_TRADES = CommandSpec(
     description="監控未平倉交易停利/停損觸發",
     argv_base=_sentinel_base() + ["monitor-intraday-trades"],
     fields=[
-        FieldSpec("threshold", "number", label="停利/停損門檻", default=0.02, min_val=0.005, max_val=0.2, step=0.005),
+        FieldSpec(
+            "threshold",
+            "number",
+            label="停利/停損門檻",
+            default=0.02,
+            min_val=0.005,
+            max_val=0.2,
+            step=0.005,
+        ),
         FieldSpec("force-close", "checkbox", label="強制平倉全部未平倉"),
         FieldSpec("allow-today", "checkbox", label="允許監控今日交易（測試用）"),
         FieldSpec("database-url", "text", label="資料庫 URL"),
@@ -403,7 +439,13 @@ ADD_INTRADAY_TRADE = CommandSpec(
     fields=[
         FieldSpec("symbol", "text", required=True, label="股票代號"),
         FieldSpec("price", "number", required=True, label="進場價格", min_val=0.01, step=0.01),
-        FieldSpec("market", "select", label="市場（留空自動偵測）", options=["", "TWSE", "TPEX"], default=""),
+        FieldSpec(
+            "market",
+            "select",
+            label="市場（留空自動偵測）",
+            options=["", "TWSE", "TPEX"],
+            default="",
+        ),
         FieldSpec("notes", "text", label="備註"),
         FieldSpec("database-url", "text", label="資料庫 URL"),
     ],

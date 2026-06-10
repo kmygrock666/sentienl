@@ -1,12 +1,12 @@
 from __future__ import annotations
 
+import json
+import re
 from abc import ABC, abstractmethod
 from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
 from io import StringIO
-import json
 from pathlib import Path
-import re
 from typing import Dict, Iterable, Optional, Sequence
 
 import pandas as pd
@@ -14,7 +14,12 @@ import requests
 
 from sentinel.config import Settings
 from sentinel.logging_utils import get_logger
-from sentinel.providers import SOURCE_MODE_AUTO, SOURCE_MODE_FIXTURE, SOURCE_MODE_NETWORK, normalize_market_name
+from sentinel.providers import (
+    SOURCE_MODE_AUTO,
+    SOURCE_MODE_FIXTURE,
+    SOURCE_MODE_NETWORK,
+    normalize_market_name,
+)
 
 logger = get_logger(__name__)
 
@@ -144,7 +149,10 @@ class StockMasterProvider(ABC):
 
         url = self.build_url(settings=settings)
         if not url:
-            logger.info("stock_master_provider_skipped", extra={"market": self.market, "reason": "missing_url"})
+            logger.info(
+                "stock_master_provider_skipped",
+                extra={"market": self.market, "reason": "missing_url"},
+            )
             attempts.append(
                 StockMasterFetchAttempt(
                     transport="network",
@@ -227,7 +235,12 @@ class StockMasterProvider(ABC):
             )
             logger.warning(
                 "stock_master_parse_failed",
-                extra={"market": self.market, "url": url, "error": str(exc), "error_type": type(exc).__name__},
+                extra={
+                    "market": self.market,
+                    "url": url,
+                    "error": str(exc),
+                    "error_type": type(exc).__name__,
+                },
             )
             return (
                 pd.DataFrame(columns=STOCK_COLUMNS),
@@ -245,7 +258,10 @@ class StockMasterProvider(ABC):
     def parse_payload(self, payload: str) -> pd.DataFrame:
         if _looks_like_html(payload):
             return self.parse_html_payload(payload)
-        frame = pd.read_csv(StringIO(payload), dtype={"證券代號": str, "股票代號": str, "公司代號": str, "symbol": str, "代號": str})
+        frame = pd.read_csv(
+            StringIO(payload),
+            dtype={"證券代號": str, "股票代號": str, "公司代號": str, "symbol": str, "代號": str},
+        )
         return _normalize_stock_master(frame)
 
     def parse_html_payload(self, payload: str) -> pd.DataFrame:
@@ -271,23 +287,40 @@ class TwseStockMasterProvider(StockMasterProvider):
     def parse_payload(self, payload: str) -> pd.DataFrame:
         if _looks_like_html(payload):
             return self.parse_html_payload(payload)
-        frame = pd.read_csv(StringIO(payload), dtype={"證券代號": str, "股票代號": str, "公司代號": str, "symbol": str, "代號": str})
+        frame = pd.read_csv(
+            StringIO(payload),
+            dtype={"證券代號": str, "股票代號": str, "公司代號": str, "symbol": str, "代號": str},
+        )
         normalized = pd.DataFrame(
             {
-                "symbol": frame[_find_stock_master_column(frame, ["symbol", "證券代號", "股票代號", "公司代號"])],
-                "name": frame[_find_stock_master_column(frame, ["name", "證券名稱", "公司名稱", "股票名稱"])],
-                "market": self.market,
-                "industry": frame[_find_stock_master_column(frame, ["industry", "產業別", "產業類別"], optional=True)],
-                "list_status": frame[
-                    _find_stock_master_column(frame, ["list_status", "上市別", "狀態", "掛牌狀態"], optional=True)
+                "symbol": frame[
+                    _find_stock_master_column(frame, ["symbol", "證券代號", "股票代號", "公司代號"])
                 ],
-                "source": frame[_find_stock_master_column(frame, ["source", "資料來源"], optional=True)],
+                "name": frame[
+                    _find_stock_master_column(frame, ["name", "證券名稱", "公司名稱", "股票名稱"])
+                ],
+                "market": self.market,
+                "industry": frame[
+                    _find_stock_master_column(
+                        frame, ["industry", "產業別", "產業類別"], optional=True
+                    )
+                ],
+                "list_status": frame[
+                    _find_stock_master_column(
+                        frame, ["list_status", "上市別", "狀態", "掛牌狀態"], optional=True
+                    )
+                ],
+                "source": frame[
+                    _find_stock_master_column(frame, ["source", "資料來源"], optional=True)
+                ],
             }
         )
         return _normalize_stock_master(normalized)
 
     def parse_html_payload(self, payload: str) -> pd.DataFrame:
-        return _parse_isin_html_stock_master(payload=payload, market=self.market, required_status="上市")
+        return _parse_isin_html_stock_master(
+            payload=payload, market=self.market, required_status="上市"
+        )
 
 
 class TpexStockMasterProvider(StockMasterProvider):
@@ -300,23 +333,40 @@ class TpexStockMasterProvider(StockMasterProvider):
     def parse_payload(self, payload: str) -> pd.DataFrame:
         if _looks_like_html(payload):
             return self.parse_html_payload(payload)
-        frame = pd.read_csv(StringIO(payload), dtype={"證券代號": str, "股票代號": str, "公司代號": str, "symbol": str, "代號": str})
+        frame = pd.read_csv(
+            StringIO(payload),
+            dtype={"證券代號": str, "股票代號": str, "公司代號": str, "symbol": str, "代號": str},
+        )
         normalized = pd.DataFrame(
             {
-                "symbol": frame[_find_stock_master_column(frame, ["symbol", "代號", "股票代號", "公司代號"])],
-                "name": frame[_find_stock_master_column(frame, ["name", "名稱", "公司名稱", "股票名稱"])],
-                "market": self.market,
-                "industry": frame[_find_stock_master_column(frame, ["industry", "產業類別", "產業別"], optional=True)],
-                "list_status": frame[
-                    _find_stock_master_column(frame, ["list_status", "上櫃別", "狀態", "掛牌狀態"], optional=True)
+                "symbol": frame[
+                    _find_stock_master_column(frame, ["symbol", "代號", "股票代號", "公司代號"])
                 ],
-                "source": frame[_find_stock_master_column(frame, ["source", "資料來源"], optional=True)],
+                "name": frame[
+                    _find_stock_master_column(frame, ["name", "名稱", "公司名稱", "股票名稱"])
+                ],
+                "market": self.market,
+                "industry": frame[
+                    _find_stock_master_column(
+                        frame, ["industry", "產業類別", "產業別"], optional=True
+                    )
+                ],
+                "list_status": frame[
+                    _find_stock_master_column(
+                        frame, ["list_status", "上櫃別", "狀態", "掛牌狀態"], optional=True
+                    )
+                ],
+                "source": frame[
+                    _find_stock_master_column(frame, ["source", "資料來源"], optional=True)
+                ],
             }
         )
         return _normalize_stock_master(normalized)
 
     def parse_html_payload(self, payload: str) -> pd.DataFrame:
-        return _parse_isin_html_stock_master(payload=payload, market=self.market, required_status="上櫃")
+        return _parse_isin_html_stock_master(
+            payload=payload, market=self.market, required_status="上櫃"
+        )
 
 
 def fetch_stock_master(
@@ -370,7 +420,9 @@ def fetch_stock_master_with_diagnostics(
                 }
             )
             continue
-        frame, diagnostic = provider.fetch_with_diagnostic(settings=settings, source_mode=source_mode)
+        frame, diagnostic = provider.fetch_with_diagnostic(
+            settings=settings, source_mode=source_mode
+        )
         diagnostics.append(diagnostic.to_dict())
         if frame.empty:
             continue
@@ -395,10 +447,14 @@ def save_stock_master_diagnostics(diagnostics: list[dict], path: Path) -> None:
 def build_stock_master_provider_registry(
     providers: Optional[Sequence[StockMasterProvider]] = None,
 ) -> Dict[str, StockMasterProvider]:
-    active_providers = list(providers) if providers is not None else [
-        TwseStockMasterProvider(),
-        TpexStockMasterProvider(),
-    ]
+    active_providers = (
+        list(providers)
+        if providers is not None
+        else [
+            TwseStockMasterProvider(),
+            TpexStockMasterProvider(),
+        ]
+    )
     return {provider.market: provider for provider in active_providers}
 
 
@@ -438,12 +494,28 @@ def _normalize_stock_master(frame: pd.DataFrame) -> pd.DataFrame:
     for column in STOCK_COLUMNS:
         if column not in normalized.columns:
             normalized[column] = ""
-    normalized["symbol"] = normalized["symbol"].where(normalized["symbol"].notna(), "").astype(str).str.strip()
-    normalized["name"] = normalized["name"].where(normalized["name"].notna(), "").astype(str).str.strip()
-    normalized["market"] = normalized["market"].where(normalized["market"].notna(), "").astype(str).str.upper().str.strip()
-    normalized["industry"] = normalized["industry"].where(normalized["industry"].notna(), "").astype(str).str.strip()
+    normalized["symbol"] = (
+        normalized["symbol"].where(normalized["symbol"].notna(), "").astype(str).str.strip()
+    )
+    normalized["name"] = (
+        normalized["name"].where(normalized["name"].notna(), "").astype(str).str.strip()
+    )
+    normalized["market"] = (
+        normalized["market"]
+        .where(normalized["market"].notna(), "")
+        .astype(str)
+        .str.upper()
+        .str.strip()
+    )
+    normalized["industry"] = (
+        normalized["industry"].where(normalized["industry"].notna(), "").astype(str).str.strip()
+    )
     normalized["list_status"] = (
-        normalized["list_status"].where(normalized["list_status"].notna(), "active").astype(str).str.lower().str.strip()
+        normalized["list_status"]
+        .where(normalized["list_status"].notna(), "active")
+        .astype(str)
+        .str.lower()
+        .str.strip()
     )
     normalized["list_status"] = normalized["list_status"].replace(
         {
@@ -458,7 +530,9 @@ def _normalize_stock_master(frame: pd.DataFrame) -> pd.DataFrame:
             "停止買賣": "inactive",
         }
     )
-    normalized["source"] = normalized["source"].where(normalized["source"].notna(), "").astype(str).str.strip()
+    normalized["source"] = (
+        normalized["source"].where(normalized["source"].notna(), "").astype(str).str.strip()
+    )
     normalized = normalized[normalized["symbol"] != ""].reset_index(drop=True)
     # Filter out non-regular equities (warrants, bonds, leveraged/inverse ETFs, etc.)
     mask = normalized["symbol"].apply(_is_tradeable_equity)
@@ -480,15 +554,16 @@ def _is_tradeable_equity(symbol: str) -> bool:
     if not s:
         return False
     # Warrants: TPEX codes – 6 digits starting with 7 (700000-799999, 700000+ is 6 digits)
-    if re.match(r'^7\d{5}$', s):
+    if re.match(r"^7\d{5}$", s):
         return False
     # Bonds: starts with 020 or 010 (government bonds listed on exchange)
-    if re.match(r'^0[12]\d', s):
+    if re.match(r"^0[12]\d", s):
         return False
     # Leveraged/inverse ETFs and structured products: ends with L, R, K, U, A, B, T, D
-    if re.match(r'^\d{5,6}[LRKUABTDlrkuabtd]$', s):
+    if re.match(r"^\d{5,6}[LRKUABTDlrkuabtd]$", s):
         return False
     return True
+
 
 def _parse_isin_html_stock_master(payload: str, market: str, required_status: str) -> pd.DataFrame:
     rows = _extract_html_rows(payload)
@@ -561,18 +636,15 @@ def _extract_html_rows(payload: str) -> list[list[str]]:
         for cell in cells:
             text = re.sub(r"<br\s*/?>", " ", cell, flags=re.IGNORECASE)
             text = re.sub(r"<[^>]+>", "", text)
-            text = (
-                text.replace("&nbsp;", " ")
-                .replace("&#160;", " ")
-                .replace("&amp;", "&")
-                .strip()
-            )
+            text = text.replace("&nbsp;", " ").replace("&#160;", " ").replace("&amp;", "&").strip()
             normalized_cells.append(text)
         rows.append(normalized_cells)
     return rows
 
 
-def _find_stock_master_column(frame: pd.DataFrame, candidates: list[str], optional: bool = False) -> str:
+def _find_stock_master_column(
+    frame: pd.DataFrame, candidates: list[str], optional: bool = False
+) -> str:
     normalized_candidates = {candidate.strip().lower(): candidate for candidate in candidates}
     for column in frame.columns.tolist():
         key = str(column).strip().lower()

@@ -49,7 +49,9 @@ def fetch_prices(
     if existing_prices is not None and not existing_prices.empty:
         # Use (market, trading_date) tuples for checking
         # trading_date should already be normalized to date object in load_price_dataset
-        existing_keys = set(zip(existing_prices['market'], pd.to_datetime(existing_prices['trading_date']).dt.date))
+        existing_keys = set(
+            zip(existing_prices["market"], pd.to_datetime(existing_prices["trading_date"]).dt.date)
+        )
 
     for market_name in markets:
         normalized_market = normalize_market_name(market_name)
@@ -64,22 +66,29 @@ def fetch_prices(
             if trading_date not in trading_dates:
                 logger.info(
                     "skip_non_trading_day",
-                    extra={"market": normalized_market, "trading_date": trading_date.isoformat(), "reason": "calendar"},
+                    extra={
+                        "market": normalized_market,
+                        "trading_date": trading_date.isoformat(),
+                        "reason": "calendar",
+                    },
                 )
                 continue
-            
+
             # Local-first check: Skip network if data exists
-            if (normalized_market, trading_date) in existing_keys and price_source_mode != "network":
+            if (
+                normalized_market,
+                trading_date,
+            ) in existing_keys and price_source_mode != "network":
                 logger.info(
                     "skipping_fetch_local_data_exists",
-                    extra={"market": normalized_market, "trading_date": trading_date.isoformat()}
+                    extra={"market": normalized_market, "trading_date": trading_date.isoformat()},
                 )
                 # We need the actual data from existing_prices, but here we just return empty
                 # and relying on the final merge. Actually, it's better to extract it here
                 # to maintain the frames list integrity for this specific range.
                 local_data = existing_prices[
-                    (existing_prices['market'] == normalized_market) & 
-                    (pd.to_datetime(existing_prices['trading_date']).dt.date == trading_date)
+                    (existing_prices["market"] == normalized_market)
+                    & (pd.to_datetime(existing_prices["trading_date"]).dt.date == trading_date)
                 ]
                 if not local_data.empty:
                     frames.append(local_data)
@@ -144,7 +153,9 @@ def scan_strategy(
     # Filtering for 'is_pure_stock' and 'is_stuck_data' is now handled inside scan_strategies
     # for candidate rows on the specific trading_date.
 
-    result = scan_strategies(prices_with_indicators, trading_date=trading_date, strategies=active_strategies)
+    result = scan_strategies(
+        prices_with_indicators, trading_date=trading_date, strategies=active_strategies
+    )
     if result.empty:
         logger.warning("no_signals_found", extra={"trading_date": trading_date.isoformat()})
     return result
@@ -179,7 +190,9 @@ def save_results(
 
     export_frame = scan_results.copy()
     if "trading_date" in export_frame.columns:
-        export_frame["trading_date"] = pd.to_datetime(export_frame["trading_date"]).dt.strftime("%Y-%m-%d")
+        export_frame["trading_date"] = pd.to_datetime(export_frame["trading_date"]).dt.strftime(
+            "%Y-%m-%d"
+        )
     export_frame["run_id"] = run_id
     export_frame["data_version"] = data_version
     export_frame.to_csv(csv_path, index=False, encoding="utf-8")
@@ -195,7 +208,7 @@ def save_results(
     # Sort and Generate Markdown Table
     if not scan_results.empty:
         md_df = scan_results.copy()
-        
+
         # Sort by Strategy Name (A-Z), Industry (A-Z) and Close (Descending)
         sort_cols = []
         if "strategy_name" in md_df.columns:
@@ -204,7 +217,7 @@ def save_results(
             sort_cols.append("industry")
         if "close" in md_df.columns:
             sort_cols.append("close")
-        
+
         if sort_cols:
             ascending = [True] * len(sort_cols)
             if "close" in sort_cols:
@@ -227,10 +240,14 @@ def save_results(
             }
         )
         if "市場" in md_df.columns:
-            md_df["市場"] = md_df["市場"].map({"TWSE": "上市", "TPEX": "上櫃"}).fillna(md_df["市場"])
+            md_df["市場"] = (
+                md_df["市場"].map({"TWSE": "上市", "TPEX": "上櫃"}).fillna(md_df["市場"])
+            )
         if "方向" in md_df.columns:
-            md_df["方向"] = md_df["方向"].map({"long": "做多", "short": "做空"}).fillna(md_df["方向"])
-        
+            md_df["方向"] = (
+                md_df["方向"].map({"long": "做多", "short": "做空"}).fillna(md_df["方向"])
+            )
+
         if "符合度" in md_df.columns:
             md_df["符合度"] = pd.to_numeric(md_df["符合度"], errors="coerce").apply(
                 lambda x: f"{x:.0%}" if pd.notna(x) else ""
@@ -248,14 +265,16 @@ def save_results(
         md_content += f"- 執行 ID: `{run_id}`\n"
         md_content += f"- 資料版本: `{data_version}`\n"
         md_content += f"- 總計符合: {len(md_df)} 筆\n\n"
-        
+
         disp_cols = ["日期", "策略", "市場", "代號", "名稱", "前日收盤", "20MA", "收盤價", "符合度"]
         # Ensure all columns exist to avoid KeyError
         actual_cols = [col for col in disp_cols if col in md_df.columns]
         md_content += md_df[actual_cols].to_markdown(index=False)
         markdown_path.write_text(md_content, encoding="utf-8")
     else:
-        markdown_path.write_text(f"# 策略掃描結果 - {trading_date}\n\n本次掃描無符合條件的標的。", encoding="utf-8")
+        markdown_path.write_text(
+            f"# 策略掃描結果 - {trading_date}\n\n本次掃描無符合條件的標的。", encoding="utf-8"
+        )
 
     payload = {
         "metadata": metadata,
@@ -265,11 +284,11 @@ def save_results(
     metadata_path.write_text(json.dumps(metadata, ensure_ascii=False, indent=2), encoding="utf-8")
 
     return {
-        "csv": csv_path, 
-        "json": json_path, 
-        "md": markdown_path, 
-        "metadata": metadata_path, 
-        "tradingview": tradingview_path
+        "csv": csv_path,
+        "json": json_path,
+        "md": markdown_path,
+        "metadata": metadata_path,
+        "tradingview": tradingview_path,
     }
 
 

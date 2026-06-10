@@ -1,4 +1,5 @@
 """CLI 輸出解析器（stdout/stderr → 結構化資料）。"""
+
 from __future__ import annotations
 
 import re
@@ -21,7 +22,11 @@ def parse_sync_output(stdout: str, stderr: str) -> dict[str, Any]:
 
 def parse_run_output(stdout: str, stderr: str) -> dict[str, Any]:
     """解析 run（Pipeline）的輸出摘要。"""
-    result: dict[str, Any] = {"lines": stdout.strip().splitlines(), "hits": None, "trading_date": None}
+    result: dict[str, Any] = {
+        "lines": stdout.strip().splitlines(),
+        "hits": None,
+        "trading_date": None,
+    }
     for line in stdout.splitlines() + stderr.splitlines():
         m = re.search(r'"total_hits"\s*:\s*(\d+)', line)
         if m:
@@ -46,16 +51,9 @@ def parse_check_stock_output(stdout: str, stderr: str) -> dict[str, Any]:
     for line in stdout.splitlines():
         line_up = line.upper()
         # 先判斷「未觸發」以免 "TRIGGERED" 誤判 "NOT TRIGGERED"
-        is_not = (
-            "✗" in line
-            or "NOT TRIGGERED" in line_up
-            or "未觸發" in line
-        )
+        is_not = "✗" in line or "NOT TRIGGERED" in line_up or "未觸發" in line
         is_warn = "WARNING" in line_up or "警示" in line
-        is_yes = (
-            not is_not
-            and ("✓" in line or "TRIGGERED" in line_up or "觸發" in line)
-        )
+        is_yes = not is_not and ("✓" in line or "TRIGGERED" in line_up or "觸發" in line)
         if is_not:
             not_triggered.append(line.strip())
         elif is_warn:
@@ -105,7 +103,7 @@ def parse_check_stock_output_v2(stdout: str, stderr: str) -> dict[str, Any]:
     # --- Extract meta ---
     meta: dict[str, str] = {"symbol": "", "name": "", "date": ""}
     for line in lines:
-        m = re.search(r'個股訊號檢驗\s*[—\-]\s*(.+?)\s*（(\d{4}-\d{2}-\d{2})）', line)
+        m = re.search(r"個股訊號檢驗\s*[—\-]\s*(.+?)\s*（(\d{4}-\d{2}-\d{2})）", line)
         if m:
             name_sym = m.group(1).strip()
             meta["date"] = m.group(2)
@@ -133,14 +131,20 @@ def parse_check_stock_output_v2(stdout: str, stderr: str) -> dict[str, Any]:
 
         # Section headers
         if "📈" in line and "做多進場" in line:
-            flush(); current_section = "long"; continue
+            flush()
+            current_section = "long"
+            continue
         if "⚠️" in line and "警示" in line:
-            flush(); current_section = "warning"; continue
+            flush()
+            current_section = "warning"
+            continue
         if "⚙️" in line and "需盤中" in line:
-            flush(); current_section = "intraday"; continue
+            flush()
+            current_section = "intraday"
+            continue
 
         # Skip decorative lines and blanks
-        if not stripped or re.match(r'^[─═╔╚╗╝║\s]+$', stripped):
+        if not stripped or re.match(r"^[─═╔╚╗╝║\s]+$", stripped):
             continue
 
         if current_section in ("long", "warning"):
@@ -154,16 +158,21 @@ def parse_check_stock_output_v2(stdout: str, stderr: str) -> dict[str, Any]:
                 else:
                     status = "not_triggered"
                     direction = current_section
-                name = re.sub(r'^[✅❌🔴]\s*', '', stripped).strip()
+                name = re.sub(r"^[✅❌🔴]\s*", "", stripped).strip()
                 current_signal = {
-                    "name": name, "direction": direction, "status": status,
-                    "source_rule": "", "reason": "",
-                    "conditions": [], "passed_count": 0, "total_count": 0,
+                    "name": name,
+                    "direction": direction,
+                    "status": status,
+                    "source_rule": "",
+                    "reason": "",
+                    "conditions": [],
+                    "passed_count": 0,
+                    "total_count": 0,
                 }
             elif current_signal and len(line) > 0 and (line[0] == " " or line[0] == "\t"):
                 # Indented condition line
                 passed = "✅" in line
-                text = re.sub(r'^\s+✅?\s*', '', line).strip()
+                text = re.sub(r"^\s+✅?\s*", "", line).strip()
                 if text:
                     current_signal["conditions"].append({"passed": passed, "text": text})
                     current_signal["total_count"] += 1
@@ -172,22 +181,35 @@ def parse_check_stock_output_v2(stdout: str, stderr: str) -> dict[str, Any]:
 
         elif current_section == "intraday" and "⚙️" in stripped:
             flush()
-            m = re.match(r'⚙️\s+(.+?)\s+\[([^\]]*)\]\s+[—\-]\s*(.*)', stripped)
+            m = re.match(r"⚙️\s+(.+?)\s+\[([^\]]*)\]\s+[—\-]\s*(.*)", stripped)
             if m:
-                name, source_rule, reason = m.group(1).strip(), m.group(2).strip(), m.group(3).strip()
+                name, source_rule, reason = (
+                    m.group(1).strip(),
+                    m.group(2).strip(),
+                    m.group(3).strip(),
+                )
             else:
-                name = re.sub(r'^⚙️\s*', '', stripped).strip()
+                name = re.sub(r"^⚙️\s*", "", stripped).strip()
                 source_rule = reason = ""
             current_signal = {
-                "name": name, "direction": "intraday", "status": "needs_intraday",
-                "source_rule": source_rule, "reason": reason,
-                "conditions": [], "passed_count": 0, "total_count": 0,
+                "name": name,
+                "direction": "intraday",
+                "status": "needs_intraday",
+                "source_rule": source_rule,
+                "reason": reason,
+                "conditions": [],
+                "passed_count": 0,
+                "total_count": 0,
             }
 
     flush()
 
-    triggered_count = sum(1 for s in signals if s["status"] == "triggered" and s["direction"] == "long")
-    warning_count = sum(1 for s in signals if s["status"] == "triggered" and s["direction"] == "warning")
+    triggered_count = sum(
+        1 for s in signals if s["status"] == "triggered" and s["direction"] == "long"
+    )
+    warning_count = sum(
+        1 for s in signals if s["status"] == "triggered" and s["direction"] == "warning"
+    )
     not_triggered_count = sum(1 for s in signals if s["status"] == "not_triggered")
     needs_intraday_count = sum(1 for s in signals if s["status"] == "needs_intraday")
 

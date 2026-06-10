@@ -12,22 +12,19 @@ from sentinel.models import Base
 def create_db_engine(database_url: str) -> Engine:
     _ensure_sqlite_parent_dir(database_url)
     if database_url.startswith("sqlite"):
-        from sqlalchemy.pool import QueuePool
         # 增加 timeout 與設定連線事件
         from sqlalchemy import event
-        engine = create_engine(
-            database_url,
-            connect_args={"timeout": 30.0},
-            future=True
-        )
-        
+        from sqlalchemy.pool import QueuePool
+
+        engine = create_engine(database_url, connect_args={"timeout": 30.0}, future=True)
+
         @event.listens_for(engine, "connect")
         def set_sqlite_pragma(dbapi_connection, connection_record):
             cursor = dbapi_connection.cursor()
             cursor.execute("PRAGMA journal_mode=WAL")
             cursor.execute("PRAGMA synchronous=NORMAL")
             cursor.close()
-            
+
         return engine
     return create_engine(database_url, future=True)
 
@@ -61,7 +58,14 @@ def _migrate_legacy_sqlite_schema(engine: Engine) -> None:
     target_pk_columns = {
         "stocks": ["market", "symbol"],
         "daily_prices": ["market", "symbol", "trading_date"],
-        "technical_indicators": ["market", "symbol", "trading_date", "indicator_name", "params_hash", "calc_version"],
+        "technical_indicators": [
+            "market",
+            "symbol",
+            "trading_date",
+            "indicator_name",
+            "params_hash",
+            "calc_version",
+        ],
         "scan_results": ["run_id", "market", "symbol", "strategy_id"],
     }
     table_shapes = {}
@@ -79,9 +83,7 @@ def _migrate_legacy_sqlite_schema(engine: Engine) -> None:
 
     with engine.begin() as connection:
         for table_name in legacy_tables:
-            connection.exec_driver_sql(
-                "ALTER TABLE {0} RENAME TO {0}__legacy".format(table_name)
-            )
+            connection.exec_driver_sql("ALTER TABLE {0} RENAME TO {0}__legacy".format(table_name))
 
     Base.metadata.create_all(bind=engine)
 
@@ -224,7 +226,11 @@ def _migrate_legacy_sqlite_schema(engine: Engine) -> None:
             if table_name == "stocks":
                 statement = copy_sql["stocks"]
             elif table_name == "daily_prices":
-                statement = copy_sql["daily_prices_with_market"] if "market" in columns else copy_sql["daily_prices_without_market"]
+                statement = (
+                    copy_sql["daily_prices_with_market"]
+                    if "market" in columns
+                    else copy_sql["daily_prices_without_market"]
+                )
             elif table_name == "technical_indicators":
                 statement = (
                     copy_sql["technical_indicators_with_market"]
@@ -232,6 +238,10 @@ def _migrate_legacy_sqlite_schema(engine: Engine) -> None:
                     else copy_sql["technical_indicators_without_market"]
                 )
             else:
-                statement = copy_sql["scan_results_with_market"] if "market" in columns else copy_sql["scan_results_without_market"]
+                statement = (
+                    copy_sql["scan_results_with_market"]
+                    if "market" in columns
+                    else copy_sql["scan_results_without_market"]
+                )
             connection.exec_driver_sql(statement)
             connection.exec_driver_sql("DROP TABLE {0}__legacy".format(table_name))

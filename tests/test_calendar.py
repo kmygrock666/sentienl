@@ -2,13 +2,13 @@ from __future__ import annotations
 
 from datetime import date
 
-from sentinel.config import Settings
 from sentinel.calendar import (
     build_trading_calendar,
     filter_trading_dates,
     is_default_trading_day,
     is_weekend,
 )
+from sentinel.config import Settings
 from sentinel.official_calendar import (
     SOURCE_MODE_FIXTURE,
     TwseOfficialTradingCalendarProvider,
@@ -74,8 +74,10 @@ def test_parse_tpex_holiday_html_and_filter_trading_dates() -> None:
     assert date(2026, 1, 23) not in trading_dates
     assert date(2026, 1, 24) not in trading_dates
     assert date(2026, 1, 27) not in trading_dates
-    assert calendar_frame[calendar_frame["calendar_date"] == date(2026, 1, 23)].iloc[0]["reason"].startswith(
-        "Last Clearing"
+    assert (
+        calendar_frame[calendar_frame["calendar_date"] == date(2026, 1, 23)]
+        .iloc[0]["reason"]
+        .startswith("Last Clearing")
     )
 
 

@@ -1,4 +1,5 @@
 """全域版面與 CSS 注入（專業交易終端暗色主題）。"""
+
 from __future__ import annotations
 
 import streamlit as st
@@ -242,11 +243,11 @@ hr { border-color: var(--line) !important; margin: 0.75rem 0 !important; }
 """
 
 _STATUS_BADGE = {
-    "running":  ("🟡", "#E0A94A"),
-    "success":  ("🟢", "#3FA66B"),
-    "failed":   ("🔴", "#D84B4B"),
-    "pending":  ("⚪", "#9AA6B2"),
-    "unknown":  ("❓", "#9AA6B2"),
+    "running": ("🟡", "#E0A94A"),
+    "success": ("🟢", "#3FA66B"),
+    "failed": ("🔴", "#D84B4B"),
+    "pending": ("⚪", "#9AA6B2"),
+    "unknown": ("❓", "#9AA6B2"),
 }
 
 
