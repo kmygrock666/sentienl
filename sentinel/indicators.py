@@ -6,26 +6,67 @@ from typing import Dict, List
 
 import numpy as np
 import pandas as pd
-pd.set_option('future.no_silent_downcasting', True)
+
+pd.set_option("future.no_silent_downcasting", True)
 
 
 INDICATOR_SPECS: Dict[str, Dict[str, object]] = {
-    "ma5": {"indicator_name": "ma5", "params": {"window": 5, "source": "close"}, "source_field": "adjusted_close"},
-    "ma10": {"indicator_name": "ma10", "params": {"window": 10, "source": "close"}, "source_field": "adjusted_close"},
-    "ma15": {"indicator_name": "ma15", "params": {"window": 15, "source": "close"}, "source_field": "adjusted_close"},
-    "ma20": {"indicator_name": "ma20", "params": {"window": 20, "source": "close"}, "source_field": "adjusted_close"},
-    "ma30": {"indicator_name": "ma30", "params": {"window": 30, "source": "close"}, "source_field": "adjusted_close"},
-    "ma60": {"indicator_name": "ma60", "params": {"window": 60, "source": "close"}, "source_field": "adjusted_close"},
-    "ma200": {"indicator_name": "ma200", "params": {"window": 200, "source": "close"}, "source_field": "adjusted_close"},
-    "ma240": {"indicator_name": "ma240", "params": {"window": 240, "source": "close"}, "source_field": "adjusted_close"},
+    "ma5": {
+        "indicator_name": "ma5",
+        "params": {"window": 5, "source": "close"},
+        "source_field": "adjusted_close",
+    },
+    "ma10": {
+        "indicator_name": "ma10",
+        "params": {"window": 10, "source": "close"},
+        "source_field": "adjusted_close",
+    },
+    "ma15": {
+        "indicator_name": "ma15",
+        "params": {"window": 15, "source": "close"},
+        "source_field": "adjusted_close",
+    },
+    "ma20": {
+        "indicator_name": "ma20",
+        "params": {"window": 20, "source": "close"},
+        "source_field": "adjusted_close",
+    },
+    "ma30": {
+        "indicator_name": "ma30",
+        "params": {"window": 30, "source": "close"},
+        "source_field": "adjusted_close",
+    },
+    "ma60": {
+        "indicator_name": "ma60",
+        "params": {"window": 60, "source": "close"},
+        "source_field": "adjusted_close",
+    },
+    "ma200": {
+        "indicator_name": "ma200",
+        "params": {"window": 200, "source": "close"},
+        "source_field": "adjusted_close",
+    },
+    "ma240": {
+        "indicator_name": "ma240",
+        "params": {"window": 240, "source": "close"},
+        "source_field": "adjusted_close",
+    },
     "ma5_up": {"indicator_name": "ma5_up", "params": {}, "source_field": "price_levels"},
     "ma10_up": {"indicator_name": "ma10_up", "params": {}, "source_field": "price_levels"},
     "ma15_up": {"indicator_name": "ma15_up", "params": {}, "source_field": "price_levels"},
     "ma20_up": {"indicator_name": "ma20_up", "params": {}, "source_field": "price_levels"},
     "ma30_up": {"indicator_name": "ma30_up", "params": {}, "source_field": "price_levels"},
     "ma60_up": {"indicator_name": "ma60_up", "params": {}, "source_field": "price_levels"},
-    "volume_ma5": {"indicator_name": "volume_ma5", "params": {"window": 5, "source": "volume"}, "source_field": "volume"},
-    "rsi14": {"indicator_name": "rsi14", "params": {"window": 14, "source": "close"}, "source_field": "adjusted_close"},
+    "volume_ma5": {
+        "indicator_name": "volume_ma5",
+        "params": {"window": 5, "source": "volume"},
+        "source_field": "volume",
+    },
+    "rsi14": {
+        "indicator_name": "rsi14",
+        "params": {"window": 14, "source": "close"},
+        "source_field": "adjusted_close",
+    },
     "macd_line": {
         "indicator_name": "macd_line",
         "params": {"fast": 12, "slow": 26, "signal": 9, "source": "close"},
@@ -41,9 +82,21 @@ INDICATOR_SPECS: Dict[str, Dict[str, object]] = {
         "params": {"fast": 12, "slow": 26, "signal": 9, "source": "close"},
         "source_field": "adjusted_close",
     },
-    "kd_k": {"indicator_name": "kd_k", "params": {"window": 9, "smooth": 3}, "source_field": "high_low_close"},
-    "kd_d": {"indicator_name": "kd_d", "params": {"window": 9, "smooth": 3}, "source_field": "high_low_close"},
-    "atr14": {"indicator_name": "atr14", "params": {"window": 14}, "source_field": "high_low_close"},
+    "kd_k": {
+        "indicator_name": "kd_k",
+        "params": {"window": 9, "smooth": 3},
+        "source_field": "high_low_close",
+    },
+    "kd_d": {
+        "indicator_name": "kd_d",
+        "params": {"window": 9, "smooth": 3},
+        "source_field": "high_low_close",
+    },
+    "atr14": {
+        "indicator_name": "atr14",
+        "params": {"window": 14},
+        "source_field": "high_low_close",
+    },
     "bb_middle_20": {
         "indicator_name": "bb_middle_20",
         "params": {"window": 20, "stddev": 2, "source": "close"},
@@ -59,74 +112,290 @@ INDICATOR_SPECS: Dict[str, Dict[str, object]] = {
         "params": {"window": 20, "stddev": 2, "source": "close"},
         "source_field": "adjusted_close",
     },
-    "high_20": {"indicator_name": "high_20", "params": {"window": 20, "source": "high"}, "source_field": "high"},
-    "is_red_candle": {"indicator_name": "is_red_candle", "params": {}, "source_field": "open_close"},
-    "day_range_pos": {"indicator_name": "day_range_pos", "params": {}, "source_field": "high_low_close"},
+    "high_20": {
+        "indicator_name": "high_20",
+        "params": {"window": 20, "source": "high"},
+        "source_field": "high",
+    },
+    "is_red_candle": {
+        "indicator_name": "is_red_candle",
+        "params": {},
+        "source_field": "open_close",
+    },
+    "day_range_pos": {
+        "indicator_name": "day_range_pos",
+        "params": {},
+        "source_field": "high_low_close",
+    },
     "change_pct": {"indicator_name": "change_pct", "params": {}, "source_field": "adjusted_close"},
     "is_pure_stock": {"indicator_name": "is_pure_stock", "params": {}, "source_field": "symbol"},
-    "open_47d_prev": {"indicator_name": "open_47d_prev", "params": {"window": 93, "source": "open"}, "source_field": "open"},
-    "high_47d_prev": {"indicator_name": "high_47d_prev", "params": {"window": 94, "source": "high"}, "source_field": "high"},
-    "has_breakout_47d": {"indicator_name": "has_breakout_47d", "params": {}, "source_field": "price_levels"},
-    "has_washout_47d": {"indicator_name": "has_washout_47d", "params": {}, "source_field": "price_levels"},
-    "ma20_cross_up": {"indicator_name": "ma20_cross_up", "params": {}, "source_field": "price_levels"},
-    "ma20_cross_up_3d": {"indicator_name": "ma20_cross_up_3d", "params": {}, "source_field": "price_levels"},
-    "ma10_cross_up": {"indicator_name": "ma10_cross_up", "params": {}, "source_field": "price_levels"},
-    "has_closed_below_ma10_20d": {"indicator_name": "has_closed_below_ma10_20d", "params": {}, "source_field": "price_levels"},
-    "ma10_1d_bullish": {"indicator_name": "ma10_1d_bullish", "params": {}, "source_field": "price_levels"},
-    "ma30_cross_up": {"indicator_name": "ma30_cross_up", "params": {}, "source_field": "price_levels"},
-    "has_closed_below_ma30_20d": {"indicator_name": "has_closed_below_ma30_20d", "params": {}, "source_field": "price_levels"},
-    "ma30_3d_bullish": {"indicator_name": "ma30_3d_bullish", "params": {}, "source_field": "price_levels"},
-    "is_stuck_data": {"indicator_name": "is_stuck_data", "params": {}, "source_field": "close_volume"},
-    "high_black_47d_prev": {"indicator_name": "high_black_47d_prev", "params": {"window": 47}, "source_field": "ohlc"},
-    "entity_high_black_47d_prev": {"indicator_name": "entity_high_black_47d_prev", "params": {"window": 47}, "source_field": "ohlc"},
-    "high_black_18d_prev": {"indicator_name": "high_black_18d_prev", "params": {"window": 18}, "source_field": "ohlc"},
-    "entity_high_black_18d_prev": {"indicator_name": "entity_high_black_18d_prev", "params": {"window": 18}, "source_field": "ohlc"},
-    "high_black_3d_prev": {"indicator_name": "high_black_3d_prev", "params": {"window": 3}, "source_field": "ohlc"},
-    "entity_high_black_3d_prev": {"indicator_name": "entity_high_black_3d_prev", "params": {"window": 3}, "source_field": "ohlc"},
-    "ma200_black_47d_prev": {"indicator_name": "ma200_black_47d_prev", "params": {"window": 47}, "source_field": "ohlc"},
-    "ma200_black_18d_prev": {"indicator_name": "ma200_black_18d_prev", "params": {"window": 18}, "source_field": "ohlc"},
-    "ma200_black_3d_prev": {"indicator_name": "ma200_black_3d_prev", "params": {"window": 3}, "source_field": "ohlc"},
+    "open_47d_prev": {
+        "indicator_name": "open_47d_prev",
+        "params": {"window": 93, "source": "open"},
+        "source_field": "open",
+    },
+    "high_47d_prev": {
+        "indicator_name": "high_47d_prev",
+        "params": {"window": 94, "source": "high"},
+        "source_field": "high",
+    },
+    "has_breakout_47d": {
+        "indicator_name": "has_breakout_47d",
+        "params": {},
+        "source_field": "price_levels",
+    },
+    "has_washout_47d": {
+        "indicator_name": "has_washout_47d",
+        "params": {},
+        "source_field": "price_levels",
+    },
+    "ma20_cross_up": {
+        "indicator_name": "ma20_cross_up",
+        "params": {},
+        "source_field": "price_levels",
+    },
+    "ma20_cross_up_3d": {
+        "indicator_name": "ma20_cross_up_3d",
+        "params": {},
+        "source_field": "price_levels",
+    },
+    "ma10_cross_up": {
+        "indicator_name": "ma10_cross_up",
+        "params": {},
+        "source_field": "price_levels",
+    },
+    "has_closed_below_ma10_20d": {
+        "indicator_name": "has_closed_below_ma10_20d",
+        "params": {},
+        "source_field": "price_levels",
+    },
+    "ma10_1d_bullish": {
+        "indicator_name": "ma10_1d_bullish",
+        "params": {},
+        "source_field": "price_levels",
+    },
+    "ma30_cross_up": {
+        "indicator_name": "ma30_cross_up",
+        "params": {},
+        "source_field": "price_levels",
+    },
+    "has_closed_below_ma30_20d": {
+        "indicator_name": "has_closed_below_ma30_20d",
+        "params": {},
+        "source_field": "price_levels",
+    },
+    "ma30_3d_bullish": {
+        "indicator_name": "ma30_3d_bullish",
+        "params": {},
+        "source_field": "price_levels",
+    },
+    "is_stuck_data": {
+        "indicator_name": "is_stuck_data",
+        "params": {},
+        "source_field": "close_volume",
+    },
+    "high_black_47d_prev": {
+        "indicator_name": "high_black_47d_prev",
+        "params": {"window": 47},
+        "source_field": "ohlc",
+    },
+    "entity_high_black_47d_prev": {
+        "indicator_name": "entity_high_black_47d_prev",
+        "params": {"window": 47},
+        "source_field": "ohlc",
+    },
+    "high_black_18d_prev": {
+        "indicator_name": "high_black_18d_prev",
+        "params": {"window": 18},
+        "source_field": "ohlc",
+    },
+    "entity_high_black_18d_prev": {
+        "indicator_name": "entity_high_black_18d_prev",
+        "params": {"window": 18},
+        "source_field": "ohlc",
+    },
+    "high_black_3d_prev": {
+        "indicator_name": "high_black_3d_prev",
+        "params": {"window": 3},
+        "source_field": "ohlc",
+    },
+    "entity_high_black_3d_prev": {
+        "indicator_name": "entity_high_black_3d_prev",
+        "params": {"window": 3},
+        "source_field": "ohlc",
+    },
+    "ma200_black_47d_prev": {
+        "indicator_name": "ma200_black_47d_prev",
+        "params": {"window": 47},
+        "source_field": "ohlc",
+    },
+    "ma200_black_18d_prev": {
+        "indicator_name": "ma200_black_18d_prev",
+        "params": {"window": 18},
+        "source_field": "ohlc",
+    },
+    "ma200_black_3d_prev": {
+        "indicator_name": "ma200_black_3d_prev",
+        "params": {"window": 3},
+        "source_field": "ohlc",
+    },
     "entity_high": {"indicator_name": "entity_high", "params": {}, "source_field": "ohlc"},
-    "entity_high_max_2d_prev": {"indicator_name": "entity_high_max_2d_prev", "params": {}, "source_field": "ohlc"},
-    "entity_high_max_2d_prev_prev_1": {"indicator_name": "entity_high_max_2d_prev_prev_1", "params": {}, "source_field": "ohlc"},
-    "close_prev_1": {"indicator_name": "close_prev_1", "params": {}, "source_field": "adjusted_close"},
-    "close_prev_2": {"indicator_name": "close_prev_2", "params": {}, "source_field": "adjusted_close"},
-    "close_prev_3": {"indicator_name": "close_prev_3", "params": {}, "source_field": "adjusted_close"},
+    "entity_high_max_2d_prev": {
+        "indicator_name": "entity_high_max_2d_prev",
+        "params": {},
+        "source_field": "ohlc",
+    },
+    "entity_high_max_2d_prev_prev_1": {
+        "indicator_name": "entity_high_max_2d_prev_prev_1",
+        "params": {},
+        "source_field": "ohlc",
+    },
+    "close_prev_1": {
+        "indicator_name": "close_prev_1",
+        "params": {},
+        "source_field": "adjusted_close",
+    },
+    "close_prev_2": {
+        "indicator_name": "close_prev_2",
+        "params": {},
+        "source_field": "adjusted_close",
+    },
+    "close_prev_3": {
+        "indicator_name": "close_prev_3",
+        "params": {},
+        "source_field": "adjusted_close",
+    },
     "high_prev_1": {"indicator_name": "high_prev_1", "params": {}, "source_field": "high"},
     "high_max_2d": {"indicator_name": "high_max_2d", "params": {}, "source_field": "high"},
-    "high_47d_prev_raw": {"indicator_name": "high_47d_prev_raw", "params": {}, "source_field": "high"},
+    "high_47d_prev_raw": {
+        "indicator_name": "high_47d_prev_raw",
+        "params": {},
+        "source_field": "high",
+    },
     "high_max_2d_raw": {"indicator_name": "high_max_2d_raw", "params": {}, "source_field": "high"},
-    "entity_high_prev_1": {"indicator_name": "entity_high_prev_1", "params": {}, "source_field": "ohlc"},
-    "has_closed_below_ma20_20d": {"indicator_name": "has_closed_below_ma20_20d", "params": {}, "source_field": "price_levels"},
-    "close_47d_prev": {"indicator_name": "close_47d_prev", "params": {}, "source_field": "adjusted_close"},
-    "close_18d_prev": {"indicator_name": "close_18d_prev", "params": {}, "source_field": "adjusted_close"},
-    "high_47d_max": {"indicator_name": "high_47d_max", "params": {"window": 47, "source": "high"}, "source_field": "high"},
-    "ma600": {"indicator_name": "ma600", "params": {"window": 600, "source": "close"}, "source_field": "adjusted_close"},
-    "ma200_47d_prev": {"indicator_name": "ma200_47d_prev", "params": {}, "source_field": "price_levels"},
-    "ma200_18d_prev": {"indicator_name": "ma200_18d_prev", "params": {}, "source_field": "price_levels"},
-    "ma200_3d_prev": {"indicator_name": "ma200_3d_prev", "params": {}, "source_field": "price_levels"},
+    "entity_high_prev_1": {
+        "indicator_name": "entity_high_prev_1",
+        "params": {},
+        "source_field": "ohlc",
+    },
+    "has_closed_below_ma20_20d": {
+        "indicator_name": "has_closed_below_ma20_20d",
+        "params": {},
+        "source_field": "price_levels",
+    },
+    "close_47d_prev": {
+        "indicator_name": "close_47d_prev",
+        "params": {},
+        "source_field": "adjusted_close",
+    },
+    "close_18d_prev": {
+        "indicator_name": "close_18d_prev",
+        "params": {},
+        "source_field": "adjusted_close",
+    },
+    "high_47d_max": {
+        "indicator_name": "high_47d_max",
+        "params": {"window": 47, "source": "high"},
+        "source_field": "high",
+    },
+    "ma600": {
+        "indicator_name": "ma600",
+        "params": {"window": 600, "source": "close"},
+        "source_field": "adjusted_close",
+    },
+    "ma200_47d_prev": {
+        "indicator_name": "ma200_47d_prev",
+        "params": {},
+        "source_field": "price_levels",
+    },
+    "ma200_18d_prev": {
+        "indicator_name": "ma200_18d_prev",
+        "params": {},
+        "source_field": "price_levels",
+    },
+    "ma200_3d_prev": {
+        "indicator_name": "ma200_3d_prev",
+        "params": {},
+        "source_field": "price_levels",
+    },
     "raw_close": {"indicator_name": "raw_close", "params": {}, "source_field": "close"},
-    "raw_close_prev_1": {"indicator_name": "raw_close_prev_1", "params": {}, "source_field": "close"},
-    "raw_close_prev_3": {"indicator_name": "raw_close_prev_3", "params": {}, "source_field": "close"},
+    "raw_close_prev_1": {
+        "indicator_name": "raw_close_prev_1",
+        "params": {},
+        "source_field": "close",
+    },
+    "raw_close_prev_3": {
+        "indicator_name": "raw_close_prev_3",
+        "params": {},
+        "source_field": "close",
+    },
     "ma20_raw": {"indicator_name": "ma20_raw", "params": {"window": 20}, "source_field": "close"},
-    "ma200_raw": {"indicator_name": "ma200_raw", "params": {"window": 200}, "source_field": "close"},
-    "ma20_raw_cross_up": {"indicator_name": "ma20_raw_cross_up", "params": {}, "source_field": "price_levels"},
-    "has_closed_below_ma20_raw_20d": {"indicator_name": "has_closed_below_ma20_raw_20d", "params": {}, "source_field": "price_levels"},
+    "ma200_raw": {
+        "indicator_name": "ma200_raw",
+        "params": {"window": 200},
+        "source_field": "close",
+    },
+    "ma20_raw_cross_up": {
+        "indicator_name": "ma20_raw_cross_up",
+        "params": {},
+        "source_field": "price_levels",
+    },
+    "has_closed_below_ma20_raw_20d": {
+        "indicator_name": "has_closed_below_ma20_raw_20d",
+        "params": {},
+        "source_field": "price_levels",
+    },
     "high_max_2d_raw": {"indicator_name": "high_max_2d_raw", "params": {}, "source_field": "high"},
-    "ma180": {"indicator_name": "ma180", "params": {"window": 180, "source": "close"}, "source_field": "adjusted_close"},
-    "ma360": {"indicator_name": "ma360", "params": {"window": 360, "source": "close"}, "source_field": "adjusted_close"},
+    "ma180": {
+        "indicator_name": "ma180",
+        "params": {"window": 180, "source": "close"},
+        "source_field": "adjusted_close",
+    },
+    "ma360": {
+        "indicator_name": "ma360",
+        "params": {"window": 360, "source": "close"},
+        "source_field": "adjusted_close",
+    },
     "low_prev_1": {"indicator_name": "low_prev_1", "params": {}, "source_field": "low"},
     "adj_close": {"indicator_name": "adj_close", "params": {}, "source_field": "adjusted_close"},
     "adj_low": {"indicator_name": "adj_low", "params": {}, "source_field": "low"},
-    "ma200_raw_3d_prev": {"indicator_name": "ma200_raw_3d_prev", "params": {}, "source_field": "price_levels"},
+    "ma200_raw_3d_prev": {
+        "indicator_name": "ma200_raw_3d_prev",
+        "params": {},
+        "source_field": "price_levels",
+    },
     "volume_prev_1": {"indicator_name": "volume_prev_1", "params": {}, "source_field": "volume"},
-    "volume_ma5_prev_1": {"indicator_name": "volume_ma5_prev_1", "params": {}, "source_field": "volume"},
+    "volume_ma5_prev_1": {
+        "indicator_name": "volume_ma5_prev_1",
+        "params": {},
+        "source_field": "volume",
+    },
     "high_20_prev_1": {"indicator_name": "high_20_prev_1", "params": {}, "source_field": "high"},
-    "upper_shadow_ratio": {"indicator_name": "upper_shadow_ratio", "params": {}, "source_field": "ohlc"},
-    "is_shooting_star": {"indicator_name": "is_shooting_star", "params": {}, "source_field": "ohlc"},
-    "is_shooting_star_prev_1": {"indicator_name": "is_shooting_star_prev_1", "params": {}, "source_field": "ohlc"},
-    "is_fairy_guide_black": {"indicator_name": "is_fairy_guide_black", "params": {}, "source_field": "ohlc"},
-    "prev_candle_body_mid": {"indicator_name": "prev_candle_body_mid", "params": {}, "source_field": "ohlc"},
+    "upper_shadow_ratio": {
+        "indicator_name": "upper_shadow_ratio",
+        "params": {},
+        "source_field": "ohlc",
+    },
+    "is_shooting_star": {
+        "indicator_name": "is_shooting_star",
+        "params": {},
+        "source_field": "ohlc",
+    },
+    "is_shooting_star_prev_1": {
+        "indicator_name": "is_shooting_star_prev_1",
+        "params": {},
+        "source_field": "ohlc",
+    },
+    "is_fairy_guide_black": {
+        "indicator_name": "is_fairy_guide_black",
+        "params": {},
+        "source_field": "ohlc",
+    },
+    "prev_candle_body_mid": {
+        "indicator_name": "prev_candle_body_mid",
+        "params": {},
+        "source_field": "ohlc",
+    },
 }
 
 
@@ -213,10 +482,11 @@ def compute_3d_indicator_frame(prices: pd.DataFrame) -> pd.DataFrame:
     return pd.DataFrame(results)
 
 
-def _compute_group_indicators(group: pd.DataFrame) -> pd.DataFrame:
+def _resolve_price_series(group: pd.DataFrame) -> Dict[str, pd.Series]:
+    """還原調整後 OHLC 與原始收盤。"""
     raw_close = pd.to_numeric(group["close"], errors="coerce")
     adj_close_col = group.get("adjusted_close")
-    
+
     # Handle adjusted prices: prioritize adjusted_close if it exists and has valid data
     if adj_close_col is not None and adj_close_col.notna().any():
         close = pd.to_numeric(adj_close_col, errors="coerce")
@@ -225,7 +495,7 @@ def _compute_group_indicators(group: pd.DataFrame) -> pd.DataFrame:
         # handle zero division by using 1.0
         safe_raw_close = raw_close.replace(0, pd.NA)
         adj_factor = (close / safe_raw_close).fillna(1.0)
-        
+
         open_p = pd.to_numeric(group["open"], errors="coerce") * adj_factor
         high = pd.to_numeric(group["high"], errors="coerce") * adj_factor
         low = pd.to_numeric(group["low"], errors="coerce") * adj_factor
@@ -234,9 +504,22 @@ def _compute_group_indicators(group: pd.DataFrame) -> pd.DataFrame:
         open_p = pd.to_numeric(group["open"], errors="coerce")
         high = pd.to_numeric(group["high"], errors="coerce")
         low = pd.to_numeric(group["low"], errors="coerce")
-        
-    volume = pd.to_numeric(group["volume"], errors="coerce")
 
+    volume = pd.to_numeric(group["volume"], errors="coerce")
+    return {
+        "close": close,
+        "open_p": open_p,
+        "high": high,
+        "low": low,
+        "raw_close": raw_close,
+        "volume": volume,
+    }
+
+
+def _add_moving_average_indicators(
+    group: pd.DataFrame, close: pd.Series, volume: pd.Series
+) -> None:
+    """均線、均線方向、量均。"""
     for window in (5, 10, 15, 20, 30, 60, 180, 200, 360, 600):
         group["ma{0}".format(window)] = close.rolling(window=window, min_periods=window).mean()
 
@@ -246,6 +529,12 @@ def _compute_group_indicators(group: pd.DataFrame) -> pd.DataFrame:
         ).astype(float)
 
     group["volume_ma5"] = volume.rolling(window=5, min_periods=5).mean()
+
+
+def _add_oscillator_indicators(
+    group: pd.DataFrame, close: pd.Series, open_p: pd.Series, high: pd.Series, low: pd.Series
+) -> None:
+    """RSI、MACD、KD、ATR、布林、high_20、紅K、日內位置、漲跌幅。"""
     group["rsi14"] = _compute_rsi(close, window=14)
 
     macd_line, macd_signal, macd_hist = _compute_macd(close)
@@ -271,6 +560,11 @@ def _compute_group_indicators(group: pd.DataFrame) -> pd.DataFrame:
     group["day_range_pos"] = ((close - low) / denom).fillna(0.0)
     group["change_pct"] = close.pct_change() * 100.0
 
+
+def _add_purity_and_blackcandle_indicators(
+    group: pd.DataFrame, close: pd.Series, open_p: pd.Series, high: pd.Series
+) -> None:
+    """47D 參考欄、is_pure_stock 判定、黑K多週期欄位。"""
     # New indicators for 47-Day K-line strategy
     # "前一根 47天 K線" means the 47-day block before the current 47-day block.
     # Therefore, the open of that block is the open price 93 days ago (shift 93),
@@ -299,18 +593,18 @@ def _compute_group_indicators(group: pd.DataFrame) -> pd.DataFrame:
     group["is_pure_stock"] = is_pure
 
     # --- Black Candle (Bearish) Multi-Period Metrics ---
-    # Definitions: 
+    # Definitions:
     #   Black Candle = Close < Open
     #   Entity High = max(Open, Close) -> for Black, this is Open
     # We need the most recent black candle in the *previous* N-day block.
-    # Logic: 
+    # Logic:
     # 1. Identify all black candles
     # 2. Get their High and Open (Entity High)
     # 3. For each date, find the most recent one that *ended* before the block started (shifted by window).
     # Simplified approach: If the user says "47D", they likely mean the 47-day window trailing from today's perspective.
     # "前一根黑K棒" usually means the most recent bearish candle.
-    
-    is_black = (close < open_p)
+
+    is_black = close < open_p
     black_high = high.where(is_black)
     black_open = open_p.where(is_black)
     black_ma200 = group["ma200"].where(is_black)
@@ -324,40 +618,33 @@ def _compute_group_indicators(group: pd.DataFrame) -> pd.DataFrame:
         group[f"entity_high_black_{w}d_prev"] = _bo_prev
         group[f"ma200_black_{w}d_prev"] = _bm_prev
 
+
+def _add_washout_recovery_indicators(
+    group: pd.DataFrame, close: pd.Series, high: pd.Series, low: pd.Series, volume: pd.Series
+) -> None:
+    """47D 洗盤回升、ma10/ma20/ma30 站回系列、prev_close/prev_ma20、is_stuck_data。"""
     # --- Stateful Sequential Indicators for 47-Day Washout Recovery ---
     # 1. has_breakout_47d: 1 iff price reached 'high_47d_prev' in last 120 days
     is_at_breakout = (high >= group["high_47d_prev"]).astype(float)
-    group["has_breakout_47d"] = (
-        is_at_breakout.rolling(window=120, min_periods=1)
-        .max()
-        .fillna(0.0)
-    )
+    group["has_breakout_47d"] = is_at_breakout.rolling(window=120, min_periods=1).max().fillna(0.0)
 
     # 2. has_washout_47d: 1 iff dropped below ma20 while having 'has_breakout_47d' active in the window
     # Logic: Look for any instance in the last 60 days where (has_breakout_47d was true AND low < ma20)
     was_below_ma20 = (low < group["ma20"]).astype(float)
     washout_signal = ((group["has_breakout_47d"] > 0) & (was_below_ma20 > 0)).astype(float)
-    group["has_washout_47d"] = (
-        washout_signal.rolling(window=60, min_periods=1)
-        .max()
-        .fillna(0.0)
-    )
+    group["has_washout_47d"] = washout_signal.rolling(window=60, min_periods=1).max().fillna(0.0)
 
     # 3. ma20_cross_up: Cross above MA20 on the current bar
     cp_close = close.shift(1)
     cp_ma20 = group["ma20"].shift(1)
-    group["ma20_cross_up"] = (
-        (cp_close <= cp_ma20) & (close > group["ma20"])
-    ).astype(float)
+    group["ma20_cross_up"] = ((cp_close <= cp_ma20) & (close > group["ma20"])).astype(float)
     group["ma20_cross_up_3d"] = (
         group["ma20_cross_up"].rolling(window=3, min_periods=1).max().fillna(0.0)
     )
-    
+
     # ma10_cross_up: 1D 10MA 站回信號
     cp_ma10 = group["ma10"].shift(1)
-    group["ma10_cross_up"] = (
-        (cp_close <= cp_ma10) & (close > group["ma10"])
-    ).astype(float)
+    group["ma10_cross_up"] = ((cp_close <= cp_ma10) & (close > group["ma10"])).astype(float)
 
     # has_closed_below_ma10_20d: 近 20 日曾收盤跌破 ma10
     is_closed_below_ma10 = (close < group["ma10"]).astype(float)
@@ -374,9 +661,7 @@ def _compute_group_indicators(group: pd.DataFrame) -> pd.DataFrame:
 
     # ma30_cross_up: 3D 10MA (1D 30MA) 站回信號
     cp_ma30 = group["ma30"].shift(1)
-    group["ma30_cross_up"] = (
-        (cp_close <= cp_ma30) & (close > group["ma30"])
-    ).astype(float)
+    group["ma30_cross_up"] = ((cp_close <= cp_ma30) & (close > group["ma30"])).astype(float)
 
     # has_closed_below_ma30_20d: 近 20 日曾收盤跌破 ma30
     is_closed_below_ma30 = (close < group["ma30"]).astype(float)
@@ -400,12 +685,20 @@ def _compute_group_indicators(group: pd.DataFrame) -> pd.DataFrame:
     # This is often a sign of crawler errors or missing historical updates where last values were repeated.
     is_same_as_prev = (close.diff() == 0) & (volume.diff() == 0)
     group["is_stuck_data"] = (
-        is_same_as_prev.rolling(window=10, min_periods=10)
-        .min()
-        .fillna(0.0)
-        .astype(float)
+        is_same_as_prev.rolling(window=10, min_periods=10).min().fillna(0.0).astype(float)
     )
 
+
+def _add_multi_period_and_pattern_indicators(
+    group: pd.DataFrame,
+    close: pd.Series,
+    open_p: pd.Series,
+    high: pd.Series,
+    low: pd.Series,
+    raw_close: pd.Series,
+    volume: pd.Series,
+) -> None:
+    """3D 突破輔助、47D/18D 多週期、raw 系列、影線/K棒型態、前日量。"""
     # 3D Breakout specific indicators
     entity_high = group[["open", "close"]].max(axis=1)
     group["entity_high"] = entity_high
@@ -429,9 +722,7 @@ def _compute_group_indicators(group: pd.DataFrame) -> pd.DataFrame:
     # --- New Indicator for 20-day Washout (Close-based) ---
     is_closed_below_ma20 = (close < group["ma20"]).astype(float)
     group["has_closed_below_ma20_20d"] = (
-        is_closed_below_ma20.rolling(window=20, min_periods=1)
-        .max()
-        .fillna(0.0)
+        is_closed_below_ma20.rolling(window=20, min_periods=1).max().fillna(0.0)
     )
 
     # --- Multi-period K-line indicators (一根K線 = N天) ---
@@ -452,18 +743,16 @@ def _compute_group_indicators(group: pd.DataFrame) -> pd.DataFrame:
     group["raw_close_prev_3"] = raw_close.shift(3)
     group["ma20_raw"] = raw_close.rolling(window=20, min_periods=20).mean()
     group["ma200_raw"] = raw_close.rolling(window=200, min_periods=200).mean()
-    
+
     cp_raw_close = group["raw_close_prev_1"]
     cp_ma20_raw = group["ma20_raw"].shift(1)
     group["ma20_raw_cross_up"] = (
         (cp_raw_close <= cp_ma20_raw) & (raw_close > group["ma20_raw"])
     ).astype(float)
-    
+
     is_closed_below_ma20_raw = (raw_close < group["ma20_raw"]).astype(float)
     group["has_closed_below_ma20_raw_20d"] = (
-        is_closed_below_ma20_raw.rolling(window=20, min_periods=1)
-        .max()
-        .fillna(0.0)
+        is_closed_below_ma20_raw.rolling(window=20, min_periods=1).max().fillna(0.0)
     )
     group["ma200_raw_3d_prev"] = group["ma200_raw"].shift(3)
 
@@ -473,21 +762,21 @@ def _compute_group_indicators(group: pd.DataFrame) -> pd.DataFrame:
     body_length = (body_top - body_bottom).clip(lower=0.001)
     upper_shadow = (high - body_top).clip(lower=0.0)
     lower_shadow = (body_bottom - low).clip(lower=0.0)
-    candle_range = (high - low)
+    candle_range = high - low
 
     group["upper_shadow_ratio"] = (upper_shadow / candle_range.replace(0, pd.NA)).fillna(0.0)
 
     # Shooting star / 倒T線: upper shadow ≥ 2× body, lower shadow ≤ 20% of total range
     # Using candle_range for the lower shadow threshold handles near-doji candles gracefully.
     group["is_shooting_star"] = (
-        (upper_shadow >= 2.0 * body_length) &
-        (lower_shadow <= candle_range.replace(0, pd.NA).fillna(0) * 0.2)
+        (upper_shadow >= 2.0 * body_length)
+        & (lower_shadow <= candle_range.replace(0, pd.NA).fillna(0) * 0.2)
     ).astype(float)
 
     # 仙人指路黑K: black candle with upper shadow ≥ 2× body
-    group["is_fairy_guide_black"] = (
-        (close < open_p) & (upper_shadow >= 2.0 * body_length)
-    ).astype(float)
+    group["is_fairy_guide_black"] = ((close < open_p) & (upper_shadow >= 2.0 * body_length)).astype(
+        float
+    )
 
     group["is_shooting_star_prev_1"] = group["is_shooting_star"].shift(1).fillna(0.0)
     group["prev_candle_body_mid"] = (open_p.shift(1) + close.shift(1)) / 2.0
@@ -497,6 +786,17 @@ def _compute_group_indicators(group: pd.DataFrame) -> pd.DataFrame:
     group["volume_ma5_prev_1"] = group["volume_ma5"].shift(1)
     group["high_20_prev_1"] = group["high_20"].shift(1)
 
+
+def _compute_group_indicators(group: pd.DataFrame) -> pd.DataFrame:
+    series = _resolve_price_series(group)
+    close, open_p, high, low = series["close"], series["open_p"], series["high"], series["low"]
+    raw_close, volume = series["raw_close"], series["volume"]
+
+    _add_moving_average_indicators(group, close, volume)
+    _add_oscillator_indicators(group, close, open_p, high, low)
+    _add_purity_and_blackcandle_indicators(group, close, open_p, high)
+    _add_washout_recovery_indicators(group, close, high, low, volume)
+    _add_multi_period_and_pattern_indicators(group, close, open_p, high, low, raw_close, volume)
     return group
 
 
@@ -566,7 +866,9 @@ def _compute_atr(high: pd.Series, low: pd.Series, close: pd.Series, window: int)
     return true_range.rolling(window=window, min_periods=window).mean()
 
 
-def _compute_bollinger_bands(close: pd.Series, window: int, stddev: float) -> tuple[pd.Series, pd.Series, pd.Series]:
+def _compute_bollinger_bands(
+    close: pd.Series, window: int, stddev: float
+) -> tuple[pd.Series, pd.Series, pd.Series]:
     middle = close.rolling(window=window, min_periods=window).mean()
     band_std = close.rolling(window=window, min_periods=window).std(ddof=0)
     upper = middle + band_std * stddev
