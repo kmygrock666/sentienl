@@ -96,6 +96,9 @@ def _detect_price_spikes(
     the flags for that date are cleared — this indicates a reference data
     failure (e.g. holiday gap, ex-dividend wave) rather than genuine bad data.
     """
+    # Build combined reference: historical CSV + current batch.
+    # frame is concatenated last, so keep="last" lets the current batch win
+    # when both sides carry the same (market, symbol, trading_date).
     combined_ref = pd.concat([reference_prices, frame], ignore_index=True)
     combined_ref["trading_date"] = pd.to_datetime(combined_ref["trading_date"]).dt.date
     combined_ref = (
@@ -113,6 +116,8 @@ def _detect_price_spikes(
         on=["market", "symbol", "trading_date"],
         how="left",
     )
+    # Right side is unique-keyed after dedup, so this left merge is many-to-one:
+    # row count/order match frame exactly (a duplicate right key would raise here).
     merged.index = frame.index
 
     prev_close = pd.to_numeric(merged["prev_close"], errors="coerce")
@@ -121,7 +126,7 @@ def _detect_price_spikes(
     change = (current_close - prev_close).abs() / prev_close.abs()
     spike_flags = valid & (change > threshold)
 
-    # Bulk-anomaly guard
+    # Bulk-anomaly guard: transform("mean") = per-date flagged ratio
     frame_dates = pd.to_datetime(frame["trading_date"]).dt.date
     flag_ratio = spike_flags.groupby(frame_dates).transform("mean")
     spike_flags = spike_flags & ~(flag_ratio > 0.15)

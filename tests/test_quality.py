@@ -129,3 +129,41 @@ def test_spike_uses_most_recent_prior_close_within_batch() -> None:
     )
     assert "2330" in flagged
     assert len(flagged) == 1
+
+
+def test_bulk_anomaly_guard_clears_flags_when_whole_date_spikes():
+    """同一天超過 15% 的股票都暴漲時，視為參考資料異常，整天旗標清除。"""
+    prices = pd.DataFrame(
+        [
+            {
+                "market": "TWSE",
+                "symbol": f"22{i:02d}",
+                "trading_date": "2026-03-03",
+                "open": 100,
+                "high": 131,
+                "low": 99,
+                "close": 130,
+                "volume": 1000,
+                "turnover": 1,
+            }
+            for i in range(5)
+        ]
+    )
+    reference = pd.DataFrame(
+        [
+            {
+                "market": "TWSE",
+                "symbol": f"22{i:02d}",
+                "trading_date": "2026-03-02",
+                "open": 100,
+                "high": 101,
+                "low": 99,
+                "close": 100,
+                "volume": 1000,
+                "turnover": 1,
+            }
+            for i in range(5)
+        ]
+    )
+    result = validate_daily_prices(prices, reference_prices=reference)
+    assert result.invalid_prices.empty  # 100% 同日暴漲 → guard 清旗標
