@@ -10,9 +10,15 @@ sys.path.insert(0, str(pathlib.Path(__file__).parent.parent.parent))
 import json
 import shutil
 
+import pandas as pd
 import streamlit as st
 
 from ui.components.layout import inject_css, section_header
+from ui.services.strategy_editor import (
+    apply_condition_edits,
+    clean_editor_rows,
+    validate_conditions,
+)
 
 st.set_page_config(page_title="Strategies | Sentinel", layout="wide")
 inject_css()
@@ -141,3 +147,34 @@ if all_ids:
         # 移除 _direction 輔助鍵再顯示
         display = {k: v for k, v in sel.items() if k != "_direction"}
         st.json(display)
+
+        # 條件編輯器
+        with st.expander("✏️ 編輯條件"):
+            cond_columns = [
+                "name",
+                "field",
+                "operator",
+                "target",
+                "value",
+                "multiplier",
+                "consecutive_days",
+            ]
+            conditions = sel.get("params_json", {}).get("conditions", [])
+            cond_df = pd.DataFrame(conditions, columns=cond_columns)
+            edited_df = st.data_editor(
+                cond_df,
+                key=f"cond_editor_{sel_id}",
+                num_rows="dynamic",
+                use_container_width=True,
+            )
+            if st.button("💾 儲存條件", type="primary"):
+                new_conditions = clean_editor_rows(edited_df.to_dict("records"))
+                errors = validate_conditions(new_conditions)
+                if errors:
+                    st.error("\n".join(errors))
+                else:
+                    updated = apply_condition_edits(raw, sel_id, new_conditions)
+                    ok = _save_raw(updated)
+                    if ok:
+                        st.success("✅ 已儲存條件，備份為 .bak")
+                        st.rerun()
