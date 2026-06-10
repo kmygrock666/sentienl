@@ -175,3 +175,50 @@ def test_task_store_never_prunes_running_tasks(tmp_path: Path) -> None:
 
     ids = {t.task_id for t in store.list_all()}
     assert "running-old" in ids
+
+
+def test_stop_task_terminates_running_process(tmp_path, monkeypatch) -> None:
+    """stop_task 應終止執行中的程序並將狀態更新為 stopped。"""
+    import subprocess
+
+    import ui.services.command_runner as cr
+    from ui.services.command_runner import TaskRun, TaskStore, stop_task
+
+    store = TaskStore(path=tmp_path / "tasks.json")
+    proc = subprocess.Popen(["sleep", "30"])
+    task = TaskRun(
+        task_id="stop-me",
+        command_id="scheduler",
+        argv=["sleep", "30"],
+        status="running",
+        pid=proc.pid,
+        started_at="2026-06-10T00:00:00",
+    )
+    store.save(task)
+    monkeypatch.setattr(cr, "_store", store)
+
+    stopped = stop_task("stop-me")
+
+    assert stopped.status == "stopped"
+    assert proc.wait(timeout=5) is not None  # 程序已被終止
+
+
+def test_stop_task_noop_on_finished_task(tmp_path, monkeypatch) -> None:
+    """stop_task 對已完成的任務應直接回傳原狀態，不做任何操作。"""
+    import ui.services.command_runner as cr
+    from ui.services.command_runner import TaskRun, TaskStore, stop_task
+
+    store = TaskStore(path=tmp_path / "tasks.json")
+    task = TaskRun(
+        task_id="done",
+        command_id="run",
+        argv=["echo"],
+        status="success",
+        started_at="2026-06-10T00:00:00",
+    )
+    store.save(task)
+    monkeypatch.setattr(cr, "_store", store)
+
+    result = stop_task("done")
+
+    assert result.status == "success"

@@ -4,8 +4,10 @@ from __future__ import annotations
 
 import json
 import os
+import signal
 import subprocess
 import tempfile
+import time
 import uuid
 from datetime import datetime
 from pathlib import Path
@@ -279,6 +281,31 @@ def _finalize_task(task: TaskRun, proc: subprocess.Popen) -> None:
     if rc != 0:
         task.error_message = task.stderr_tail[-500:] if task.stderr_tail else "Exit code non-zero"
     _store.save(task)
+
+
+def stop_task(task_id: str) -> TaskRun:
+    """終止執行中的任務：先 SIGTERM，最多等 2 秒，仍存活則 SIGKILL。"""
+    task = _store.get(task_id)
+    if task is None:
+        raise ValueError(f"Task {task_id} not found")
+    if task.status != "running" or not task.pid:
+        return task
+
+    try:
+        os.kill(task.pid, signal.SIGTERM)
+        for _ in range(20):
+            time.sleep(0.1)
+            os.kill(task.pid, 0)  # 仍存活則繼續等；已結束會拋例外跳出
+        os.kill(task.pid, signal.SIGKILL)
+    except (OSError, ProcessLookupError):
+        pass  # 行程已結束
+
+    task.status = "stopped"
+    task.ended_at = datetime.utcnow().isoformat()
+    task.stdout_tail = _read_tail(task.stdout_path)
+    task.stderr_tail = _read_tail(task.stderr_path)
+    _store.save(task)
+    return task
 
 
 def poll_all_running() -> list[TaskRun]:

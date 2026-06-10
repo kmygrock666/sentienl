@@ -27,7 +27,7 @@ if ctrl1.button("🔄 手動刷新", use_container_width=True):
     st.rerun()
 
 filter_status = ctrl2.selectbox(
-    "篩選狀態", ["全部", "running", "success", "failed", "pending"], index=0
+    "篩選狀態", ["全部", "running", "success", "failed", "stopped", "pending"], index=0
 )
 
 
@@ -82,7 +82,7 @@ else:
         with col_main:
             render_task_card(task)
         with col_action:
-            if task.status in ("success", "failed"):
+            if task.status in ("success", "failed", "stopped"):
                 action_col1, action_col2 = st.columns(2)
                 if action_col1.button(
                     "重跑", key=f"rerun_{task.task_id}", use_container_width=True

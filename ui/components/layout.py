@@ -247,6 +247,7 @@ _STATUS_BADGE = {
     "success": ("🟢", "#3FA66B"),
     "failed": ("🔴", "#D84B4B"),
     "pending": ("⚪", "#9AA6B2"),
+    "stopped": ("⏹️", "#9AA6B2"),
     "unknown": ("❓", "#9AA6B2"),
 }
 

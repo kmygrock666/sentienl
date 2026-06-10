@@ -15,7 +15,13 @@ import streamlit as st
 from ui.components.command_preview import render_command_preview
 from ui.components.layout import inject_css, section_header, status_badge_html
 from ui.components.log_viewer import render_log_tail
-from ui.services.command_runner import get_store, launch_task, poll_all_running, poll_task
+from ui.services.command_runner import (
+    get_store,
+    launch_task,
+    poll_all_running,
+    poll_task,
+    stop_task,
+)
 from ui.services.command_specs import (
     ADD_INTRADAY_TRADE,
     CAPTURE_SNAPSHOT,
@@ -276,6 +282,7 @@ with tab_trades:
 
 # ── Scheduler ─────────────────────────────────────────────────────────────
 with tab_scheduler:
+    poll_all_running()
     section_header("自動化排程器（scheduler）")
     st.warning(
         "Scheduler 啟動後為常駐程序（APScheduler），關閉 UI 不會停止排程器。"
@@ -287,9 +294,14 @@ with tab_scheduler:
     scheduler_tasks = [t for t in store.list_all() if t.command_id == "scheduler"]
     running_schedulers = [t for t in scheduler_tasks if t.status == "running"]
     if running_schedulers:
+        _running = running_schedulers[0]
         st.success(
-            f"✅ Scheduler 已在執行中（Task #{running_schedulers[0].task_id}，PID {running_schedulers[0].pid}）"
+            f"✅ Scheduler 已在執行中（Task #{_running.task_id}，PID {_running.pid}）"
         )
+        if st.button("🛑 停止 Scheduler", key="stop_scheduler"):
+            stop_task(_running.task_id)
+            st.success(f"Scheduler（#{_running.task_id}）已停止")
+            st.rerun()
     else:
         if st.button("▶ 啟動 Scheduler", key="btn_scheduler"):
             task = launch_task(SCHEDULER, {})
