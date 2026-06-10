@@ -182,6 +182,42 @@ with tab_trades:
             hide_index=True,
         )
 
+        if st.button("🔄 更新即時損益", key="btn_pnl"):
+            from sqlalchemy.orm import Session as SASession
+
+            from sentinel.intraday.trades import compute_open_trades_pnl
+
+            try:
+                with st.spinner("抓取即時報價中…"), SASession(_engine) as _s:
+                    st.session_state["open_pnl"] = compute_open_trades_pnl(_s)
+            except Exception as _pnl_err:
+                st.error(f"更新即時損益失敗：{_pnl_err}")
+
+        _pnl = st.session_state.get("open_pnl")
+        if _pnl:
+            _quoted = [r for r in _pnl if r["current_price"] is not None]
+            _total_amount = sum(r["unrealized_amount"] for r in _quoted)
+            _total_cost = sum(r["entry_price"] * r["shares"] for r in _quoted)
+            _total_pct = _total_amount / _total_cost if _total_cost > 0 else 0.0
+            st.metric("總未實現損益", f"{_total_amount:+,.0f}", f"{_total_pct:+.2%}")
+            _pnl_rows = [
+                {
+                    "代號": r["symbol"],
+                    "進場價": r["entry_price"],
+                    "現價": r["current_price"] if r["current_price"] is not None else "—",
+                    "未實現%": (
+                        f"{r['unrealized_pct']:+.2%}" if r["unrealized_pct"] is not None else "—"
+                    ),
+                    "未實現金額": (
+                        f"{r['unrealized_amount']:+,.2f}"
+                        if r["unrealized_amount"] is not None
+                        else "—"
+                    ),
+                }
+                for r in _pnl
+            ]
+            st.dataframe(pd.DataFrame(_pnl_rows), use_container_width=True, hide_index=True)
+
     with st.expander("查看全部交易紀錄（含已結算）"):
         if not _all_df.empty:
             st.dataframe(

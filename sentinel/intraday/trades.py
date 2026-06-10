@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import logging
 from datetime import date
-from typing import Any, Dict, List
+from typing import Any, Callable, Dict, List
 
 from sqlalchemy import and_, select
 from sqlalchemy.orm import Session
@@ -198,6 +198,75 @@ def monitor_and_close_intraday_trades(
         session.commit()
 
     return count
+
+
+def _fetch_mis_quotes(symbols: list[str], markets: list[str]) -> dict[tuple[str, str], float]:
+    """以 MISFetcher 抓取即時報價，回傳 {(market, symbol): close_price}。"""
+    from sentinel.intraday.fetcher import MISFetcher, parse_mis_data
+
+    fetcher = MISFetcher()
+    raw_msgs = fetcher.fetch_all(symbols, markets)
+    quotes: dict[tuple[str, str], float] = {}
+    for msg in raw_msgs:
+        p = parse_mis_data(msg)
+        close = p.get("close")
+        if p.get("symbol") and close and close > 0:
+            quotes[(p["market"], p["symbol"])] = float(close)
+    return quotes
+
+
+def compute_open_trades_pnl(
+    session: Session,
+    quotes_fetcher: Callable[[list[str], list[str]], dict[tuple[str, str], float]] | None = None,
+) -> list[dict[str, Any]]:
+    """計算未平倉部位的即時未實現損益。
+
+    quotes_fetcher: 可注入的報價函式 (symbols, markets) -> {(market, symbol): close_price}；
+    預設使用 MISFetcher 即時報價。回傳 list[dict]，每筆含：
+    trade_id, market, symbol, entry_date, entry_price, shares, current_price,
+    unrealized_pct, unrealized_amount。抓不到報價的部位 current_price/unrealized_* 為 None。
+    無未平倉部位回傳 []。
+    """
+    stmt = select(IntradayTrade).where(IntradayTrade.status == "open")
+    open_trades = session.execute(stmt).scalars().all()
+
+    if not open_trades:
+        return []
+
+    if quotes_fetcher is None:
+        quotes_fetcher = _fetch_mis_quotes
+
+    symbols = [t.symbol for t in open_trades]
+    markets = [t.market for t in open_trades]
+    quotes = quotes_fetcher(symbols, markets)
+
+    results: list[dict[str, Any]] = []
+    for trade in open_trades:
+        entry_price = float(trade.entry_price)
+        current_price = quotes.get((trade.market, trade.symbol))
+
+        if current_price is not None:
+            unrealized_pct = (current_price - entry_price) / entry_price
+            unrealized_amount = (current_price - entry_price) * trade.shares
+        else:
+            unrealized_pct = None
+            unrealized_amount = None
+
+        results.append(
+            {
+                "trade_id": trade.trade_id,
+                "market": trade.market,
+                "symbol": trade.symbol,
+                "entry_date": trade.entry_date,
+                "entry_price": entry_price,
+                "shares": trade.shares,
+                "current_price": current_price,
+                "unrealized_pct": unrealized_pct,
+                "unrealized_amount": unrealized_amount,
+            }
+        )
+
+    return results
 
 
 def add_manual_intraday_trade(
