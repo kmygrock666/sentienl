@@ -10,12 +10,18 @@ sys.path.insert(0, str(pathlib.Path(__file__).parent.parent.parent))
 from datetime import date, timedelta
 
 import pandas as pd
+import plotly.graph_objects as go
 import streamlit as st
 
 from ui.components.command_preview import render_command_preview
 from ui.components.layout import inject_css, section_header, status_badge_html
 from ui.components.log_viewer import render_log_tail
 from ui.components.result_table import render_df
+from ui.services.backtest_compare import (
+    build_equity_curves,
+    discover_backtest_runs,
+    load_run_report,
+)
 from ui.services.command_runner import get_store, launch_task, poll_all_running, poll_task
 from ui.services.command_specs import BACKFILL_AGG_BARS, BACKTEST, IMPORT_MINUTE_BARS
 
@@ -27,7 +33,9 @@ st.caption("匯入分鐘線、補建聚合 K 棒、回測執行與報表查詢")
 store = get_store()
 poll_all_running()
 
-tab_import, tab_backfill, tab_run = st.tabs(["匯入分鐘線", "補建聚合 K 棒", "執行回測"])
+tab_import, tab_backfill, tab_run, tab_compare = st.tabs(
+    ["匯入分鐘線", "補建聚合 K 棒", "執行回測", "📊 比較"]
+)
 
 
 def _show_task(task_key: str) -> None:
@@ -168,3 +176,85 @@ with tab_run:
                     st.error(f"讀取明細失敗：{e}")
             else:
                 st.info("尚無 trades.csv")
+
+# ── 比較 ───────────────────────────────────────────────────────────────────
+with tab_compare:
+    section_header("回測結果比較", "選擇多個 run 比較績效指標與權益曲線")
+
+    backtests_dir = pathlib.Path("outputs/backtests")
+    runs = discover_backtest_runs(backtests_dir)
+
+    if not runs:
+        st.info("尚無回測結果，請先執行回測")
+    else:
+        run_ids = [r["run_id"] for r in runs]
+        selected = st.multiselect(
+            "選擇要比較的回測 run",
+            run_ids,
+            default=run_ids[:2],
+            key="cmp_runs",
+        )
+        run_by_id = {r["run_id"]: r for r in runs}
+
+        if not selected:
+            st.info("請至少選擇一個 run")
+        else:
+            # ── 績效指標表 ──────────────────────────────────────────────
+            report_frames: list[pd.DataFrame] = []
+            for run_id in selected:
+                try:
+                    report_frames.append(load_run_report(run_by_id[run_id]["path"]))
+                except Exception as e:
+                    st.warning(f"讀取 {run_id} 的 report.csv 失敗：{e}")
+            if report_frames:
+                metrics_df = pd.concat(report_frames, ignore_index=True)
+                show_cols = [
+                    "run_id",
+                    "strategy_id",
+                    "trades",
+                    "win_rate",
+                    "total_return",
+                    "cagr",
+                    "mdd",
+                ]
+                st.dataframe(
+                    metrics_df[[c for c in show_cols if c in metrics_df.columns]],
+                    use_container_width=True,
+                    hide_index=True,
+                )
+
+            # ── 權益曲線疊圖 ────────────────────────────────────────────
+            fig = go.Figure()
+            for run_id in selected:
+                trades_path = run_by_id[run_id]["path"] / "trades.csv"
+                try:
+                    trades_df = pd.read_csv(trades_path)
+                    curves = build_equity_curves(trades_df)
+                except Exception as e:
+                    st.warning(f"讀取 {run_id} 的 trades.csv 失敗：{e}")
+                    continue
+                for strategy_id, curve in curves.groupby("strategy_id", sort=False):
+                    fig.add_trace(
+                        go.Scatter(
+                            x=curve["exit_date"],
+                            y=curve["balance"],
+                            mode="lines+markers",
+                            name=f"{run_id}/{strategy_id}",
+                            line={"width": 1.5},
+                        )
+                    )
+            if fig.data:
+                fig.update_layout(
+                    height=500,
+                    margin={"l": 40, "r": 20, "t": 40, "b": 20},
+                    legend={"orientation": "h", "y": 1.02},
+                    plot_bgcolor="#0f172a",
+                    paper_bgcolor="#0f172a",
+                    font_color="#e2e8f0",
+                    yaxis_title="權益 (balance)",
+                )
+                fig.update_xaxes(showgrid=False, zeroline=False)
+                fig.update_yaxes(showgrid=True, gridcolor="#1e293b", zeroline=False)
+                st.plotly_chart(fig, use_container_width=True)
+            else:
+                st.info("選取的 run 無可繪製的權益曲線")
