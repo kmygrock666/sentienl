@@ -12,12 +12,12 @@ from sentinel.models import DailyPrice, IntradayIndicator, IntradaySnapshot
 
 logger = logging.getLogger(__name__)
 
-# Tomorrow's Star 策略參數
+# Tomorrow's Star 策略參數（DEFAULT_ 開頭者可由呼叫端覆寫，其餘為固定門檻）
 DEFAULT_TOP_N = 300  # 以昨日成交量取前 N 檔為掃描對象
 DEFAULT_MIN_GAIN = 0.075  # 最終漲幅門檻（7.5%）
 MAX_PRICE = 1000.0  # 股價上限，排除高價股
 INTRADAY_MIN_GAIN = 0.03  # 盤中初步漲幅門檻（3%）
-VOLUME_RATIO_MIN = 1.5  # 成交量需達 5 日均量的倍數
+VOLUME_RATIO_MIN = 1.5  # 成交量需達 5 日均量的 1.5 倍
 GREAT_POWER_LOCK_RATIO = 3.0  # 最後一筆量 ≥ 鎖單量/此值 視為大戶力道
 VOLUME_AVG_WINDOW_DAYS = 5  # 均量計算視窗
 
