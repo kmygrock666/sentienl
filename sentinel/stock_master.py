@@ -565,7 +565,12 @@ def _is_tradeable_equity(symbol: str) -> bool:
     return True
 
 
-def _parse_isin_html_stock_master(payload: str, market: str, required_status: str) -> pd.DataFrame:
+def _parse_isin_html_stock_master(
+    payload: str,
+    market: str,
+    required_status: str,
+    valid_sections: Sequence[str] = ("股票",),
+) -> pd.DataFrame:
     rows = _extract_html_rows(payload)
     if not rows:
         return pd.DataFrame(columns=STOCK_COLUMNS)
@@ -584,7 +589,6 @@ def _parse_isin_html_stock_master(payload: str, market: str, required_status: st
         industry = _normalize_html_text(row[4]) if len(row) > 4 else ""
 
         section_name = current_section or ""
-        valid_sections = ["股票", "ETF", "受益"]
         if not any(valid in section_name for valid in valid_sections):
             continue
         if required_status not in list_status:
