@@ -1,4 +1,5 @@
 """任務執行器：負責背景執行 CLI 指令、追蹤狀態、保存日誌。"""
+
 from __future__ import annotations
 
 import json
@@ -17,6 +18,7 @@ from ui.services.command_specs import CommandSpec, build_argv
 # 任務狀態存放路徑（相對於專案根目錄）
 _TASKS_FILE = Path(__file__).parent.parent.parent / "data" / "ui_tasks.json"
 _LOG_TAIL_LINES = 100
+_MAX_TASKS = 200
 
 
 class TaskRun:
@@ -76,6 +78,7 @@ class TaskRun:
     @property
     def argv_preview(self) -> str:
         import shlex
+
         return " ".join(shlex.quote(a) for a in self.argv)
 
     @property
@@ -109,6 +112,11 @@ class TaskStore:
             return {}
 
     def _save_all(self, data: dict[str, dict]) -> None:
+        if len(data) > _MAX_TASKS:
+            ordered = sorted(data.values(), key=lambda d: d.get("started_at") or "", reverse=True)
+            kept = ordered[:_MAX_TASKS]
+            running_overflow = [d for d in ordered[_MAX_TASKS:] if d.get("status") == "running"]
+            data = {d["task_id"]: d for d in kept + running_overflow}
         self._path.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
 
     def save(self, task: TaskRun) -> None:
@@ -172,8 +180,12 @@ def launch_task(spec: CommandSpec, params: dict) -> TaskRun:
     argv = build_argv(spec, params)
     task_id = str(uuid.uuid4())[:8]
 
-    stdout_f = tempfile.NamedTemporaryFile(delete=False, suffix=".stdout", mode="w", encoding="utf-8")
-    stderr_f = tempfile.NamedTemporaryFile(delete=False, suffix=".stderr", mode="w", encoding="utf-8")
+    stdout_f = tempfile.NamedTemporaryFile(
+        delete=False, suffix=".stdout", mode="w", encoding="utf-8"
+    )
+    stderr_f = tempfile.NamedTemporaryFile(
+        delete=False, suffix=".stderr", mode="w", encoding="utf-8"
+    )
 
     task = TaskRun(
         task_id=task_id,
@@ -281,8 +293,12 @@ def rerun_task(task: TaskRun) -> TaskRun:
     """以相同 argv 重新啟動一個已完成/失敗的任務。"""
     task_id = str(uuid.uuid4())[:8]
 
-    stdout_f = tempfile.NamedTemporaryFile(delete=False, suffix=".stdout", mode="w", encoding="utf-8")
-    stderr_f = tempfile.NamedTemporaryFile(delete=False, suffix=".stderr", mode="w", encoding="utf-8")
+    stdout_f = tempfile.NamedTemporaryFile(
+        delete=False, suffix=".stdout", mode="w", encoding="utf-8"
+    )
+    stderr_f = tempfile.NamedTemporaryFile(
+        delete=False, suffix=".stderr", mode="w", encoding="utf-8"
+    )
 
     new_task = TaskRun(
         task_id=task_id,
@@ -311,6 +327,7 @@ def rerun_task(task: TaskRun) -> TaskRun:
 
     # 判斷是否為短任務（看原始 command_id）
     from ui.services.command_specs import ALL_SPECS
+
     spec = ALL_SPECS.get(task.command_id)
     if spec and not spec.is_long_task:
         try:

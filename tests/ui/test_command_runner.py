@@ -1,4 +1,5 @@
 """測試 TaskRun 資料結構與 TaskStore 的基本 CRUD。"""
+
 from __future__ import annotations
 
 import json
@@ -123,3 +124,54 @@ def test_store_missing_task_returns_none(tmp_store) -> None:
 def test_store_empty_file_returns_empty(tmp_store) -> None:
     """空存放區 list_all 應回傳空 list。"""
     assert tmp_store.list_all() == []
+
+
+def test_task_store_prunes_to_max_tasks(tmp_path: Path) -> None:
+    """TaskStore 應在超過上限時只保留最新的 _MAX_TASKS 筆。"""
+    from ui.services.command_runner import _MAX_TASKS, TaskRun, TaskStore
+
+    store = TaskStore(path=tmp_path / "tasks.json")
+    for i in range(_MAX_TASKS + 50):
+        store.save(
+            TaskRun(
+                task_id=f"t{i:04d}",
+                command_id="run",
+                argv=["echo"],
+                status="success",
+                started_at=f"2026-06-10T00:{i // 60:02d}:{i % 60:02d}",
+            )
+        )
+
+    tasks = store.list_all()
+    assert len(tasks) == _MAX_TASKS
+    # 留下的必須是最新的一批
+    assert tasks[0].task_id == f"t{_MAX_TASKS + 49:04d}"
+
+
+def test_task_store_never_prunes_running_tasks(tmp_path: Path) -> None:
+    """即使超過上限，running 狀態的任務也不應被刪除。"""
+    from ui.services.command_runner import _MAX_TASKS, TaskRun, TaskStore
+
+    store = TaskStore(path=tmp_path / "tasks.json")
+    store.save(
+        TaskRun(
+            task_id="running-old",
+            command_id="run",
+            argv=["echo"],
+            status="running",
+            started_at="2020-01-01T00:00:00",
+        )
+    )
+    for i in range(_MAX_TASKS + 10):
+        store.save(
+            TaskRun(
+                task_id=f"t{i:04d}",
+                command_id="run",
+                argv=["echo"],
+                status="success",
+                started_at=f"2026-06-10T00:{i // 60:02d}:{i % 60:02d}",
+            )
+        )
+
+    ids = {t.task_id for t in store.list_all()}
+    assert "running-old" in ids
