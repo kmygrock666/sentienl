@@ -2,8 +2,8 @@ from __future__ import annotations
 
 import hashlib
 import json
-from datetime import datetime
-from typing import Any, Dict, List, Optional, Sequence
+from datetime import date, datetime
+from typing import Any, Dict, List, Optional, Sequence, Union
 
 import pandas as pd
 from sqlalchemy.dialects.postgresql import insert as postgresql_insert
@@ -11,6 +11,7 @@ from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session
 
+from sentinel.indicators import INDICATOR_SPECS
 from sentinel.models import (
     DailyPrice,
     DailyPrice3D,
@@ -23,7 +24,8 @@ from sentinel.models import (
     TechnicalIndicator,
     TradingCalendar,
 )
-from sentinel.indicators import INDICATOR_SPECS
+
+DateLike = Union[str, date, datetime, pd.Timestamp]
 
 DEFAULT_JOB_NAME = "daily_scan"
 DEFAULT_STRATEGY_ID = "mvp_ma_crossover"
@@ -48,7 +50,14 @@ def start_job_run(engine: Engine, run_id: str, job_name: str = DEFAULT_JOB_NAME)
                 }
             ],
             conflict_columns=["run_id"],
-            update_columns=["job_name", "start_time", "status", "rows_in", "rows_out", "error_summary"],
+            update_columns=[
+                "job_name",
+                "start_time",
+                "status",
+                "rows_in",
+                "rows_out",
+                "error_summary",
+            ],
         )
         session.commit()
 
@@ -91,7 +100,7 @@ def persist_pipeline_results(
     trading_calendar: pd.DataFrame,
     data_quarantine: Optional[pd.DataFrame],
     run_id: str,
-    trading_date,
+    trading_date: DateLike,
     data_version: str,
     strategy_definitions: Optional[Sequence[Dict[str, Any]]] = None,
 ) -> Dict[str, int]:
@@ -118,13 +127,17 @@ def persist_pipeline_results(
         return persisted_counts
 
 
-def insert_data_quarantine(session: Session, quarantined_rows: Optional[pd.DataFrame], run_id: str) -> int:
+def insert_data_quarantine(
+    session: Session, quarantined_rows: Optional[pd.DataFrame], run_id: str
+) -> int:
     if quarantined_rows is None or quarantined_rows.empty:
         return 0
 
     rows = []
     for row in quarantined_rows.to_dict(orient="records"):
-        trading_date = _to_date(row["trading_date"]) if row.get("trading_date") is not None else None
+        trading_date = (
+            _to_date(row["trading_date"]) if row.get("trading_date") is not None else None
+        )
         rows.append(
             DataQuarantine(
                 source_table="daily_prices",
@@ -209,24 +222,19 @@ def upsert_daily_prices(session: Session, prices: pd.DataFrame, data_version: st
     if prices.empty:
         return 0
 
-    rows = []
-    for row in prices.to_dict(orient="records"):
-        rows.append(
-            {
-                "market": row["market"],
-                "symbol": row["symbol"],
-                "trading_date": _to_date(row["trading_date"]),
-                "open": float(row["open"]),
-                "high": float(row["high"]),
-                "low": float(row["low"]),
-                "close": float(row["close"]),
-                "volume": int(row["volume"]),
-                "turnover": int(row["turnover"]) if row["turnover"] is not None else None,
-                "adjusted_close": float(row["close"]),
-                "data_version": data_version,
-                "updated_at": datetime.utcnow(),
-            }
-        )
+    frame = prices[
+        ["market", "symbol", "trading_date", "open", "high", "low", "close", "volume", "turnover"]
+    ].copy()
+    frame["trading_date"] = pd.to_datetime(frame["trading_date"]).dt.date
+    for column in ("open", "high", "low", "close"):
+        frame[column] = frame[column].astype(float)
+    frame["volume"] = frame["volume"].astype(int)
+    turnover = pd.to_numeric(frame["turnover"], errors="coerce")
+    frame["turnover"] = [int(v) if pd.notna(v) else None for v in turnover]
+    frame["adjusted_close"] = frame["close"]
+    frame["data_version"] = data_version
+    frame["updated_at"] = datetime.utcnow()
+    rows = frame.to_dict(orient="records")
 
     _upsert_rows(
         session=session,
@@ -248,58 +256,59 @@ def upsert_daily_prices(session: Session, prices: pd.DataFrame, data_version: st
     return len(rows)
 
 
-def upsert_technical_indicators(session: Session, indicators: pd.DataFrame, prices: pd.DataFrame) -> int:
+def upsert_technical_indicators(
+    session: Session, indicators: pd.DataFrame, prices: pd.DataFrame
+) -> int:
     if indicators.empty or prices.empty:
         return 0
 
-    trading_keys = {
-        (
-            str(row["market"]),
-            str(row["symbol"]),
-            str(_to_date(row["trading_date"])),
-        )
-        for row in prices[["market", "symbol", "trading_date"]].to_dict(orient="records")
-    }
-    filtered = indicators[
-        indicators.apply(
-            lambda row: (
-                str(row["market"]),
-                str(row["symbol"]),
-                str(_to_date(row["trading_date"])),
-            )
-            in trading_keys,
-            axis=1,
-        )
-    ].copy()
+    keys = prices[["market", "symbol", "trading_date"]].copy()
+    keys["trading_date"] = pd.to_datetime(keys["trading_date"]).dt.date
+    keys = keys.drop_duplicates()
+
+    filtered = indicators.copy()
+    filtered["trading_date"] = pd.to_datetime(filtered["trading_date"]).dt.date
+    filtered = filtered.merge(keys, on=["market", "symbol", "trading_date"], how="inner")
     if filtered.empty:
         return 0
 
+    now = datetime.utcnow()
     rows: List[Dict[str, Any]] = []
     for column_name, spec in INDICATOR_SPECS.items():
         if column_name not in filtered.columns:
             continue
-        subset = filtered.dropna(subset=[column_name])
-        params_hash = _hash_indicator_params(spec["params"])
-        for row in subset.to_dict(orient="records"):
-            rows.append(
-                {
-                    "market": row["market"],
-                    "symbol": row["symbol"],
-                    "trading_date": _to_date(row["trading_date"]),
-                    "indicator_name": str(spec["indicator_name"]),
-                    "params_hash": params_hash,
-                    "calc_version": DEFAULT_INDICATOR_VERSION,
-                    "value": float(row[column_name]),
-                    "source_field": str(spec["source_field"]),
-                    "updated_at": datetime.utcnow(),
-                }
-            )
+        subset = filtered.loc[
+            filtered[column_name].notna(), ["market", "symbol", "trading_date", column_name]
+        ]
+        if subset.empty:
+            continue
+        chunk = pd.DataFrame(
+            {
+                "market": subset["market"],
+                "symbol": subset["symbol"],
+                "trading_date": subset["trading_date"],
+                "indicator_name": str(spec["indicator_name"]),
+                "params_hash": _hash_indicator_params(spec["params"]),
+                "calc_version": DEFAULT_INDICATOR_VERSION,
+                "value": subset[column_name].astype(float),
+                "source_field": str(spec["source_field"]),
+                "updated_at": now,
+            }
+        )
+        rows.extend(chunk.to_dict(orient="records"))
 
     _upsert_rows(
         session=session,
         table=TechnicalIndicator.__table__,
         rows=rows,
-        conflict_columns=["market", "symbol", "trading_date", "indicator_name", "params_hash", "calc_version"],
+        conflict_columns=[
+            "market",
+            "symbol",
+            "trading_date",
+            "indicator_name",
+            "params_hash",
+            "calc_version",
+        ],
         update_columns=["value", "source_field", "updated_at"],
     )
     return len(rows)
@@ -334,7 +343,7 @@ def upsert_scan_results(
     session: Session,
     scan_results: pd.DataFrame,
     run_id: str,
-    trading_date,
+    trading_date: DateLike,
     data_version: str,
 ) -> int:
     if scan_results.empty:
@@ -389,17 +398,11 @@ def upsert_trading_calendar(session: Session, trading_calendar: pd.DataFrame) ->
     if trading_calendar.empty:
         return 0
 
-    rows = []
-    for row in trading_calendar.to_dict(orient="records"):
-        rows.append(
-            {
-                "exchange": row["exchange"],
-                "calendar_date": _to_date(row["calendar_date"]),
-                "is_trading_day": bool(row["is_trading_day"]),
-                "reason": row["reason"],
-                "updated_at": datetime.utcnow(),
-            }
-        )
+    frame = trading_calendar[["exchange", "calendar_date", "is_trading_day", "reason"]].copy()
+    frame["calendar_date"] = pd.to_datetime(frame["calendar_date"]).dt.date
+    frame["is_trading_day"] = frame["is_trading_day"].astype(bool)
+    frame["updated_at"] = datetime.utcnow()
+    rows = frame.to_dict(orient="records")
 
     _upsert_rows(
         session=session,
@@ -472,12 +475,16 @@ def table_to_model(table_name: str):
 # Aggregated bar helpers
 # ---------------------------------------------------------------------------
 
+
 def _get_trading_day_sequence(session: Session, market: str) -> pd.DataFrame:
     """Return DataFrame with columns [calendar_date, seq_idx] for all trading days of market."""
     from sqlalchemy import select
+
     stmt = (
         select(TradingCalendar.calendar_date)
-        .where(TradingCalendar.exchange == market, TradingCalendar.is_trading_day == True)  # noqa: E712
+        .where(
+            TradingCalendar.exchange == market, TradingCalendar.is_trading_day == True
+        )  # noqa: E712
         .order_by(TradingCalendar.calendar_date)
     )
     rows = session.execute(stmt).fetchall()
@@ -519,32 +526,46 @@ def backfill_aggregated_bars(session: Session, prices: pd.DataFrame) -> Dict[str
         rows: List[Dict[str, Any]] = []
         for market, market_prices in prices.groupby("market"):
             seq = _get_trading_day_sequence(session, str(market))
-            merged = market_prices.merge(seq, left_on="trading_date", right_on="calendar_date", how="inner")
+            merged = market_prices.merge(
+                seq, left_on="trading_date", right_on="calendar_date", how="inner"
+            )
             merged["period_idx"] = merged["seq_idx"] // n
 
             for (symbol, period_idx), grp in merged.groupby(["symbol", "period_idx"]):
                 if len(grp) < n:
                     continue  # incomplete block — skip
                 agg = _aggregate_ohlcv(grp)
-                rows.append({
-                    "market": str(market),
-                    "symbol": str(symbol),
-                    **agg,
-                })
+                rows.append(
+                    {
+                        "market": str(market),
+                        "symbol": str(symbol),
+                        **agg,
+                    }
+                )
 
         _upsert_rows(
             session=session,
             table=table,
             rows=rows,
             conflict_columns=["market", "symbol", "period_end_date"],
-            update_columns=["open", "high", "low", "close", "volume", "adjusted_close", "updated_at"],
+            update_columns=[
+                "open",
+                "high",
+                "low",
+                "close",
+                "volume",
+                "adjusted_close",
+                "updated_at",
+            ],
         )
         counts[model_table] = len(rows)
 
     return counts
 
 
-def update_aggregated_bars(session: Session, market: str, trading_date, prices: pd.DataFrame) -> None:
+def update_aggregated_bars(
+    session: Session, market: str, trading_date: DateLike, prices: pd.DataFrame
+) -> None:
     """Incrementally append a completed 3D or 47D bar when the trading_date closes a block.
 
     Called after upsert_daily_prices for each new trading day.
@@ -563,10 +584,13 @@ def update_aggregated_bars(session: Session, market: str, trading_date, prices: 
 
         # Find the first date of this block
         block_start_idx = today_idx - (n - 1)
-        block_dates = set(seq[seq["seq_idx"].between(block_start_idx, today_idx)]["calendar_date"].tolist())
+        block_dates = set(
+            seq[seq["seq_idx"].between(block_start_idx, today_idx)]["calendar_date"].tolist()
+        )
 
         symbol_prices = prices[
-            (prices["market"] == market) & (prices["trading_date"].apply(_to_date).isin(block_dates))
+            (prices["market"] == market)
+            & (prices["trading_date"].apply(_to_date).isin(block_dates))
         ].copy()
         if symbol_prices.empty:
             continue
@@ -583,7 +607,15 @@ def update_aggregated_bars(session: Session, market: str, trading_date, prices: 
             table=table,
             rows=rows,
             conflict_columns=["market", "symbol", "period_end_date"],
-            update_columns=["open", "high", "low", "close", "volume", "adjusted_close", "updated_at"],
+            update_columns=[
+                "open",
+                "high",
+                "low",
+                "close",
+                "volume",
+                "adjusted_close",
+                "updated_at",
+            ],
         )
 
 
@@ -592,13 +624,15 @@ def _hash_indicator_params(params: Dict[str, Any]) -> str:
     return hashlib.sha256(serialized.encode("utf-8")).hexdigest()
 
 
-def _to_date(value) -> Any:
+def _to_date(value: DateLike) -> date:
     return pd.to_datetime(value).date()
 
 
 def _build_quarantine_source_pk(run_id: str, market: Any, symbol: Any, trading_date: Any) -> str:
     date_text = trading_date.isoformat() if trading_date is not None else "unknown-date"
-    return "{0}:{1}:{2}:{3}".format(run_id, market or "unknown-market", symbol or "unknown-symbol", date_text)
+    return "{0}:{1}:{2}:{3}".format(
+        run_id, market or "unknown-market", symbol or "unknown-symbol", date_text
+    )
 
 
 def _to_jsonable(value: Any) -> Any:
