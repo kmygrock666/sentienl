@@ -112,6 +112,7 @@ class TaskStore:
             return {}
 
     def _save_all(self, data: dict[str, dict]) -> None:
+        # _MAX_TASKS 是軟上限：overflow 中的 running 任務會被保留，總數可能暫時超過
         if len(data) > _MAX_TASKS:
             ordered = sorted(data.values(), key=lambda d: d.get("started_at") or "", reverse=True)
             kept = ordered[:_MAX_TASKS]
