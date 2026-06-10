@@ -25,7 +25,10 @@ def test_twse_parser_extracts_price_rows() -> None:
     frame = provider._parse_csv(_TWSE_PAYLOAD, trading_date=date(2025, 3, 5))
 
     assert list(frame["symbol"]) == ["1101", "1102"]
+    assert frame.iloc[0]["market"] == "TWSE"
+    assert frame.iloc[0]["trading_date"] == date(2025, 3, 5)
     assert frame.iloc[0]["close"] == 32.30
+    assert frame.iloc[0]["turnover"] == 500000000
     assert frame.iloc[1]["volume"] == 7654321
 
 
