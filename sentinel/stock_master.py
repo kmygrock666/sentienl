@@ -571,6 +571,11 @@ def _parse_isin_html_stock_master(
     required_status: str,
     valid_sections: Sequence[str] = ("股票",),
 ) -> pd.DataFrame:
+    """解析 ISIN HTML 為股票主檔 DataFrame。
+
+    valid_sections 以「子字串」比對區段標題（官方頁面區段名稱常帶空白變體），
+    預設僅收「股票」區段——ETF / 受益證券不納入策略掃描用主檔。
+    """
     rows = _extract_html_rows(payload)
     if not rows:
         return pd.DataFrame(columns=STOCK_COLUMNS)
