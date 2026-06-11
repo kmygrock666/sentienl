@@ -149,3 +149,73 @@ def test_load_symbol_prices_missing_dataset_returns_empty(
     df = load_symbol_prices("2330")
 
     assert df.empty
+
+
+# ── market filtering ────────────────────────────────────────────────────────
+
+_CSV_COLLISION_HEADER = "symbol,name,market,trading_date,open,high,low,close,volume,turnover,source"
+
+
+@pytest.fixture()
+def _collision_csv(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
+    """同一代號 6201 同時出現在 TWSE 與 TPEX（真實碰撞情境）。"""
+    rows = [
+        _CSV_COLLISION_HEADER,
+        "6201,aaa,TWSE,2026-06-10,50,51,49,50,10000,1,twse",
+        "6201,bbb,TPEX,2026-06-10,20,21,19,20,5000,1,tpex",
+        "6201,aaa,TWSE,2026-06-09,49,50,48,49,9000,1,twse",
+    ]
+    path = tmp_path / "collision_prices.csv"
+    path.write_text("\n".join(rows) + "\n", encoding="utf-8")
+    monkeypatch.setattr(queries, "Settings", lambda: _FakeSettings(path))
+    return path
+
+
+def test_load_symbol_prices_market_filter_twse(_collision_csv: Path) -> None:
+    """market='TWSE' 只回傳 TWSE 的列，排除 TPEX 同代號（記錄碰撞風險）。"""
+    df = load_symbol_prices("6201", days=60, market="TWSE")
+
+    assert not df.empty
+    assert (df["market"] == "TWSE").all()
+    assert len(df) == 2  # 兩個 TWSE 日期
+
+
+def test_load_symbol_prices_market_none_returns_both(_collision_csv: Path) -> None:
+    """market=None 回傳兩市場全部列——記錄 (symbol, date) 碰撞風險。"""
+    df = load_symbol_prices("6201", days=60, market=None)
+
+    assert len(df) == 3  # TWSE×2 + TPEX×1
+    assert set(df["market"]) == {"TWSE", "TPEX"}
+
+
+# ── bar-alignment regression ─────────────────────────────────────────────────
+
+
+def _short_flow_frame() -> pd.DataFrame:
+    """法人資料只有兩個日期（比 price_frame 的三天少一天）。"""
+    df = pd.DataFrame(
+        {
+            "日期": pd.to_datetime(["2026-06-09", "2026-06-10"]),
+            "外資": [100, -50],
+            "投信": [10, -5],
+            "自營商": [5, 5],
+            "合計": [115, -50],
+        }
+    )
+    for col in ["外資", "投信", "自營商", "合計"]:
+        df[col] = df[col].astype("Int64")
+    return df
+
+
+def test_flow_bars_align_to_flow_dates_not_price_dates() -> None:
+    """法人 bar 的 x 軸日期必須等於 flow_df 的日期，不能被拉伸到 price_df 範圍。"""
+    price_df = _price_frame()  # 3 dates: 06-08, 06-09, 06-10
+    flow_df = _short_flow_frame()  # 2 dates: 06-09, 06-10
+
+    fig = candlestick_with_institutional(price_df, flow_df, title="對齊測試")
+
+    # 找到名稱為「外資」的 trace（比用索引更穩健）
+    foreign_trace = next(t for t in fig.data if t.name == "外資")
+    bar_dates = list(foreign_trace.x)
+    expected = list(flow_df["日期"])
+    assert bar_dates == expected, f"外資 bar x={bar_dates!r}，期望 {expected!r}"

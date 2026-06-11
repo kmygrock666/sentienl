@@ -53,12 +53,23 @@ _PRICE_FRAME_COLUMNS = [
 ]
 
 
-def load_symbol_prices(symbol: str, days: int = 120) -> pd.DataFrame:
-    """從 CSV 價格資料集載入單一個股最近 N 個交易日（昇冪）。找不到回空 frame。"""
+def load_symbol_prices(symbol: str, days: int = 120, market: str | None = None) -> pd.DataFrame:
+    """從 CSV 價格資料集載入單一個股最近 N 個交易日（昇冪）。找不到回空 frame。
+
+    Args:
+        symbol: 股票代號（字串比對）。
+        days:   最多取最近幾個交易日，預設 120。
+        market: 若指定（"TWSE" 或 "TPEX"），只回傳該市場的列；
+                None 則不過濾市場（注意：相同代號可能同時出現在 TWSE 與
+                TPEX，會造成 (symbol, trading_date) 重複，呼叫端應傳入
+                market 以避免碰撞）。
+    """
     dataset = load_price_dataset(Settings().price_dataset_path)
     if dataset.empty:
         return pd.DataFrame(columns=_PRICE_FRAME_COLUMNS)
     matched = dataset.loc[dataset["symbol"].astype(str) == symbol]
+    if market is not None:
+        matched = matched.loc[matched["market"] == market]
     if matched.empty:
         return pd.DataFrame(columns=_PRICE_FRAME_COLUMNS)
     return matched.sort_values("trading_date").tail(days).reset_index(drop=True)

@@ -26,6 +26,12 @@ from ui.services.queries import (
     load_symbol_prices,
 )
 
+
+@st.cache_data(ttl=300, show_spinner="載入價格資料…")
+def _cached_symbol_prices(symbol: str, days: int, market: str | None) -> pd.DataFrame:
+    return load_symbol_prices(symbol, days, market=market)
+
+
 st.set_page_config(page_title="Institutional | Sentinel", layout="wide")
 inject_css()
 st.title("💰 主力買賣超")
@@ -134,9 +140,42 @@ def _render_kline_tab() -> None:
         return
     st.session_state["inst_kline_symbol"] = symbol
 
-    # 價格：CSV 資料集
+    # ── 1. 解析市場，再同時決定價格與籌碼的 market 參數 ──────────────────
+    # 先查法人籌碼以偵測實際市場（自動模式），再用同一 market 載入價格，
+    # 避免 TWSE/TPEX 代號碰撞導致 (symbol, date) 重複。
+    flow_df = pd.DataFrame()
+    resolved_market: str | None = None  # 最終確認的市場
+
+    if kline_market != "自動":
+        # 明確選擇市場
+        resolved_market = kline_market
+        try:
+            flow_df = get_institutional_flow(engine, resolved_market, symbol, days=period)
+        except Exception as e:
+            st.warning(f"法人籌碼查詢失敗：{e}")
+    else:
+        # 自動：先試 TWSE 再試 TPEX
+        try:
+            for mkt in ("TWSE", "TPEX"):
+                df = get_institutional_flow(engine, mkt, symbol, days=period)
+                if not df.empty:
+                    flow_df = df
+                    resolved_market = mkt
+                    break
+        except Exception as e:
+            st.warning(f"法人籌碼查詢失敗：{e}")
+
+        # 若籌碼兩市場皆無資料，用價格資料偵測市場
+        if resolved_market is None:
+            for mkt in ("TWSE", "TPEX"):
+                probe = _cached_symbol_prices(symbol, days=period, market=mkt)
+                if not probe.empty:
+                    resolved_market = mkt
+                    break
+
+    # ── 2. 載入價格（使用已確認的 market，避免跨市場碰撞） ─────────────────
     try:
-        price_df = load_symbol_prices(symbol, days=period)
+        price_df = _cached_symbol_prices(symbol, days=period, market=resolved_market)
     except Exception as e:
         st.error(f"讀取價格資料失敗：{e}")
         return
@@ -144,18 +183,6 @@ def _render_kline_tab() -> None:
         st.warning(f"找不到 {symbol} 的價格資料，請先執行每日同步")
         return
     price_df = price_df.assign(trading_date=pd.to_datetime(price_df["trading_date"]))
-
-    # 法人買賣超：自動模式先試 TWSE 再試 TPEX
-    flow_df = pd.DataFrame()
-    markets = ("TWSE", "TPEX") if kline_market == "自動" else (kline_market,)
-    try:
-        for mkt in markets:
-            df = get_institutional_flow(engine, mkt, symbol, days=period)
-            if not df.empty:
-                flow_df = df
-                break
-    except Exception as e:
-        st.warning(f"法人籌碼查詢失敗：{e}")
 
     if not flow_df.empty:
         # 圖表需昇冪；日期與價格軸統一為 datetime

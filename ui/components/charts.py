@@ -104,9 +104,10 @@ def candlestick_with_institutional(
         paper_bgcolor=_CHIP_BG,
         font_color="#e2e8f0",
         hovermode="x unified",
-        barmode="group",
+        # relative: 正負值分別往上/下堆疊；120-240 日時 group 模式柱寬不足一像素
+        barmode="relative",
     )
-    # 隱藏週末缺口
+    # rangebreaks 隱藏週六／日缺口；國定假日仍會留空（刻意保留，符合 TWSE 慣例）
     fig.update_xaxes(
         showgrid=False,
         zeroline=False,
