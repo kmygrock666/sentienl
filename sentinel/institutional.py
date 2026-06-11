@@ -14,9 +14,12 @@ from datetime import date
 from pathlib import Path
 
 import pandas as pd
+from sqlalchemy import select
+from sqlalchemy.orm import Session
 
 from sentinel.config import Settings
 from sentinel.logging_utils import get_logger
+from sentinel.models import InstitutionalFlow
 from sentinel.providers import (
     SOURCE_MODE_AUTO,
     SOURCE_MODE_FIXTURE,
@@ -32,10 +35,13 @@ __all__ = [
     "SOURCE_MODE_AUTO",
     "SOURCE_MODE_FIXTURE",
     "SOURCE_MODE_NETWORK",
+    "INSTITUTIONAL_ENRICH_COLUMNS",
     "InstitutionalFlowProvider",
     "TwseT86Provider",
     "TpexInstitutionalProvider",
     "build_institutional_provider",
+    "enrich_with_institutional",
+    "load_institutional_frame",
 ]
 
 logger = get_logger(__name__)
@@ -345,3 +351,89 @@ def _parse_net(value: str) -> int | None:
     if cleaned in {"", "--", "---", "----", "N/A"}:
         return None
     return int(float(cleaned))
+
+
+INSTITUTIONAL_ENRICH_COLUMNS = [
+    "foreign_net",
+    "investment_trust_net",
+    "dealer_net",
+    "total_net",
+    "foreign_net_5d",
+    "foreign_buy_streak",
+]
+
+_DERIVED_COLUMNS = ["foreign_net_5d", "foreign_buy_streak"]
+
+
+def load_institutional_frame(session: Session, start_date: date, end_date: date) -> pd.DataFrame:
+    """讀取日期區間內的法人買賣超。
+
+    回傳欄位 [market, symbol, trading_date, foreign_net, investment_trust_net,
+    dealer_net, total_net]；無資料時回傳含上述欄位的空 frame。
+    """
+    columns = ["market", "symbol", "trading_date"] + list(_NET_COLUMNS)
+    rows = session.execute(
+        select(
+            InstitutionalFlow.market,
+            InstitutionalFlow.symbol,
+            InstitutionalFlow.trading_date,
+            InstitutionalFlow.foreign_net,
+            InstitutionalFlow.investment_trust_net,
+            InstitutionalFlow.dealer_net,
+            InstitutionalFlow.total_net,
+        ).where(
+            InstitutionalFlow.trading_date >= start_date,
+            InstitutionalFlow.trading_date <= end_date,
+        )
+    ).all()
+    if not rows:
+        return pd.DataFrame(columns=columns)
+    return pd.DataFrame(rows, columns=columns)
+
+
+def enrich_with_institutional(frame: pd.DataFrame, flows: pd.DataFrame) -> pd.DataFrame:
+    """把法人欄位（含衍生值）left-merge 進指標 frame，回傳新 frame 不變異輸入。
+
+    - merge key: (market, symbol, trading_date)，兩邊日期正規化為 date
+    - foreign_net_5d: 依 (market, symbol) 按日期排序的 foreign_net rolling(5, min_periods=1) sum
+    - foreign_buy_streak: 截至該日連續 foreign_net > 0 的天數（中斷歸零；NaN 視為中斷）
+    - flows 為空或 frame 為空時：回傳 frame 副本並補上全 NaN 的六個欄位（欄位永遠存在）
+    """
+    result = frame.copy()
+    if result.empty or flows.empty:
+        for column in INSTITUTIONAL_ENRICH_COLUMNS:
+            result[column] = float("nan")
+        return result
+
+    # 用暫時的正規化日期欄位 merge，避免 datetime64 vs date 的 dtype 差異破壞
+    # join，同時保留原 frame trading_date 的原始值與 dtype。
+    date_key = "_institutional_date_key"
+    order_key = "_institutional_row_order"
+    result[date_key] = pd.to_datetime(result["trading_date"]).dt.date
+    result[order_key] = range(len(result.index))
+
+    flow_columns = flows.copy()
+    flow_columns[date_key] = pd.to_datetime(flow_columns["trading_date"]).dt.date
+    flow_columns = flow_columns[["market", "symbol", date_key] + list(_NET_COLUMNS)]
+
+    merged = result.merge(flow_columns, on=["market", "symbol", date_key], how="left")
+
+    # 衍生值在 merge 後的 frame 上計算：價格序列裡的缺資料日（NaN）才能視為中斷。
+    merged = merged.sort_values(["market", "symbol", date_key], kind="stable")
+    group_keys = [merged["market"], merged["symbol"]]
+    merged["foreign_net_5d"] = (
+        merged.groupby(["market", "symbol"], sort=False)["foreign_net"]
+        .rolling(5, min_periods=1)
+        .sum()
+        .reset_index(level=["market", "symbol"], drop=True)
+    )
+    positive = merged["foreign_net"].gt(0)  # NaN → False（視為中斷）
+    streak_break = (~positive).groupby(group_keys).cumsum()
+    merged["foreign_buy_streak"] = (
+        positive.groupby(group_keys + [streak_break]).cumsum().astype(int)
+    )
+
+    merged = (
+        merged.sort_values(order_key).drop(columns=[date_key, order_key]).reset_index(drop=True)
+    )
+    return merged

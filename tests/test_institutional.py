@@ -9,9 +9,12 @@ from sqlalchemy.orm import Session
 
 from sentinel.db import create_db_engine, create_schema
 from sentinel.institutional import (
+    INSTITUTIONAL_ENRICH_COLUMNS,
     TpexInstitutionalProvider,
     TwseT86Provider,
     build_institutional_provider,
+    enrich_with_institutional,
+    load_institutional_frame,
 )
 from sentinel.models import InstitutionalFlow
 from sentinel.persistence import upsert_institutional_flows
@@ -161,3 +164,199 @@ def test_upsert_institutional_flows_empty_frame_returns_zero(tmp_path) -> None:
 
     with Session(engine) as session:
         assert upsert_institutional_flows(session, pd.DataFrame()) == 0
+
+
+_FLOW_COLUMNS = [
+    "market",
+    "symbol",
+    "trading_date",
+    "foreign_net",
+    "investment_trust_net",
+    "dealer_net",
+    "total_net",
+]
+
+
+def _flow_row(
+    symbol: str,
+    trading_date: date,
+    foreign_net: int | None,
+    market: str = "TWSE",
+) -> dict:
+    return {
+        "market": market,
+        "symbol": symbol,
+        "trading_date": trading_date,
+        "foreign_net": foreign_net,
+        "investment_trust_net": 1_000,
+        "dealer_net": -500,
+        "total_net": (foreign_net or 0) + 500,
+    }
+
+
+def _price_frame(rows: list[tuple[str, date]], market: str = "TWSE") -> pd.DataFrame:
+    return pd.DataFrame(
+        [
+            {
+                "market": market,
+                "symbol": symbol,
+                "trading_date": trading_date,
+                "close": 100.0,
+            }
+            for symbol, trading_date in rows
+        ]
+    )
+
+
+def test_load_institutional_frame_filters_date_range(tmp_path) -> None:
+    database_path = tmp_path / "institutional_load.db"
+    engine = create_db_engine(f"sqlite:///{database_path}")
+    create_schema(engine)
+
+    flows = pd.DataFrame(
+        [
+            _flow_row("2330", date(2025, 3, 3), 100),
+            _flow_row("2330", date(2025, 3, 4), 200),
+            _flow_row("2330", date(2025, 3, 5), 300),
+            _flow_row("2330", date(2025, 3, 6), 400),
+            _flow_row("2330", date(2025, 3, 7), 500),
+        ]
+    )
+    with Session(engine) as session:
+        upsert_institutional_flows(session, flows)
+        session.commit()
+
+    with Session(engine) as session:
+        loaded = load_institutional_frame(
+            session, start_date=date(2025, 3, 4), end_date=date(2025, 3, 6)
+        )
+
+    assert list(loaded.columns) == _FLOW_COLUMNS
+    assert sorted(loaded["trading_date"]) == [
+        date(2025, 3, 4),
+        date(2025, 3, 5),
+        date(2025, 3, 6),
+    ]
+    assert sorted(loaded["foreign_net"]) == [200, 300, 400]
+
+
+def test_load_institutional_frame_empty_range_returns_empty_frame(tmp_path) -> None:
+    database_path = tmp_path / "institutional_load_empty.db"
+    engine = create_db_engine(f"sqlite:///{database_path}")
+    create_schema(engine)
+
+    with Session(engine) as session:
+        loaded = load_institutional_frame(
+            session, start_date=date(2025, 3, 4), end_date=date(2025, 3, 6)
+        )
+
+    assert loaded.empty
+    assert list(loaded.columns) == _FLOW_COLUMNS
+
+
+def test_enrich_with_institutional_rolling_and_streak() -> None:
+    # 2330: 3/3=+100, 3/4=+200, 3/5=資料缺漏(gap), 3/6=-50, 3/7=+300
+    frame = _price_frame(
+        [
+            ("2330", date(2025, 3, 3)),
+            ("2330", date(2025, 3, 4)),
+            ("2330", date(2025, 3, 5)),
+            ("2330", date(2025, 3, 6)),
+            ("2330", date(2025, 3, 7)),
+        ]
+    )
+    flows = pd.DataFrame(
+        [
+            _flow_row("2330", date(2025, 3, 3), 100),
+            _flow_row("2330", date(2025, 3, 4), 200),
+            _flow_row("2330", date(2025, 3, 6), -50),
+            _flow_row("2330", date(2025, 3, 7), 300),
+        ]
+    )
+
+    enriched = enrich_with_institutional(frame, flows)
+
+    for column in INSTITUTIONAL_ENRICH_COLUMNS:
+        assert column in enriched.columns
+
+    foreign_net = enriched["foreign_net"].tolist()
+    assert foreign_net[0] == 100
+    assert foreign_net[1] == 200
+    assert pd.isna(foreign_net[2])  # gap day
+    assert foreign_net[3] == -50
+    assert foreign_net[4] == 300
+
+    # rolling(5, min_periods=1) sum skips the NaN gap day:
+    # [100, 100+200, 100+200, 100+200-50, 100+200-50+300]
+    assert enriched["foreign_net_5d"].tolist() == [100, 300, 300, 250, 550]
+
+    # streak: +100→1, +200→2, gap(NaN)→0, -50→0, +300→1
+    assert enriched["foreign_buy_streak"].tolist() == [1, 2, 0, 0, 1]
+
+
+def test_enrich_with_institutional_does_not_leak_across_symbols() -> None:
+    # Interleaved input order on purpose: grouping must isolate each symbol.
+    frame = _price_frame(
+        [
+            ("2330", date(2025, 3, 3)),
+            ("2317", date(2025, 3, 3)),
+            ("2330", date(2025, 3, 4)),
+            ("2317", date(2025, 3, 4)),
+        ]
+    )
+    flows = pd.DataFrame(
+        [
+            _flow_row("2330", date(2025, 3, 3), 10),
+            _flow_row("2330", date(2025, 3, 4), 20),
+            _flow_row("2317", date(2025, 3, 3), 1_000),
+            _flow_row("2317", date(2025, 3, 4), -2_000),
+        ]
+    )
+
+    enriched = enrich_with_institutional(frame, flows)
+
+    # Original row order is preserved.
+    assert enriched["symbol"].tolist() == ["2330", "2317", "2330", "2317"]
+
+    tsmc = enriched[enriched["symbol"] == "2330"].sort_values("trading_date")
+    hon_hai = enriched[enriched["symbol"] == "2317"].sort_values("trading_date")
+    assert tsmc["foreign_net_5d"].tolist() == [10, 30]
+    assert tsmc["foreign_buy_streak"].tolist() == [1, 2]
+    assert hon_hai["foreign_net_5d"].tolist() == [1_000, -1_000]
+    assert hon_hai["foreign_buy_streak"].tolist() == [1, 0]
+
+
+def test_enrich_with_institutional_empty_flows_adds_nan_columns() -> None:
+    frame = _price_frame([("2330", date(2025, 3, 3)), ("2330", date(2025, 3, 4))])
+    original = frame.copy(deep=True)
+
+    enriched = enrich_with_institutional(frame, pd.DataFrame(columns=_FLOW_COLUMNS))
+
+    for column in INSTITUTIONAL_ENRICH_COLUMNS:
+        assert column in enriched.columns
+        assert enriched[column].isna().all()
+    # 輸入 frame 不可被變異
+    pd.testing.assert_frame_equal(frame, original)
+
+
+def test_enrich_with_institutional_handles_datetime64_trading_date() -> None:
+    frame = _price_frame([("2330", date(2025, 3, 3)), ("2330", date(2025, 3, 4))])
+    frame["trading_date"] = pd.to_datetime(frame["trading_date"])
+    flows = pd.DataFrame(
+        [
+            _flow_row("2330", date(2025, 3, 3), 100),
+            _flow_row("2330", date(2025, 3, 4), 200),
+        ]
+    )
+
+    enriched = enrich_with_institutional(frame, flows)
+
+    assert enriched["foreign_net"].tolist() == [100, 200]
+    assert enriched["foreign_net_5d"].tolist() == [100, 300]
+    assert enriched["foreign_buy_streak"].tolist() == [1, 2]
+    # 原本的 trading_date dtype / 值必須保留
+    assert pd.api.types.is_datetime64_any_dtype(enriched["trading_date"])
+    assert enriched["trading_date"].tolist() == [
+        pd.Timestamp(2025, 3, 3),
+        pd.Timestamp(2025, 3, 4),
+    ]
