@@ -17,6 +17,106 @@ _INDICATOR_COLORS = {
 }
 
 
+# 台股慣例：漲紅、跌綠（與 11_Institutional 頁面色票一致）
+_TW_UP = "#E5484D"
+_TW_DOWN = "#2FA46C"
+_VOLUME_GRAY = "#5C6B78"
+_CHIP_BG = "#0C1116"
+_FLOW_COLORS = {
+    "外資": "#F0A03C",
+    "投信": "#4DB8C4",
+    "自營商": "#8E9BA8",
+}
+
+
+def candlestick_with_institutional(
+    price_df: pd.DataFrame,
+    flow_df: pd.DataFrame | None = None,
+    title: str = "",
+) -> go.Figure:
+    """三列子圖：K線、成交量、三大法人買賣超（張）。
+
+    price_df: trading_date/open/high/low/close/volume（已按日期昇冪）
+    flow_df: get_institutional_flow 輸出（日期/外資/投信/自營商/合計，張，可為 None/空）
+    """
+    if flow_df is not None and flow_df.empty:
+        flow_df = None
+    has_flow = flow_df is not None
+    rows = 3 if has_flow else 2
+    row_heights = [0.5, 0.2, 0.3] if has_flow else [0.7, 0.3]
+    subplot_titles = [title, "成交量"] + (["三大法人買賣超（張）"] if has_flow else [])
+
+    fig = make_subplots(
+        rows=rows,
+        cols=1,
+        shared_xaxes=True,
+        vertical_spacing=0.04,
+        row_heights=row_heights,
+        subplot_titles=subplot_titles,
+    )
+
+    fig.add_trace(
+        go.Candlestick(
+            x=price_df["trading_date"],
+            open=price_df["open"],
+            high=price_df["high"],
+            low=price_df["low"],
+            close=price_df["close"],
+            name="K線",
+            increasing_line_color=_TW_UP,
+            decreasing_line_color=_TW_DOWN,
+        ),
+        row=1,
+        col=1,
+    )
+
+    fig.add_trace(
+        go.Bar(
+            x=price_df["trading_date"],
+            y=price_df["volume"],
+            name="成交量",
+            marker_color=_VOLUME_GRAY,
+        ),
+        row=2,
+        col=1,
+    )
+
+    if flow_df is not None:
+        for col_name, color in _FLOW_COLORS.items():
+            fig.add_trace(
+                go.Bar(
+                    x=flow_df["日期"],
+                    y=flow_df[col_name],
+                    name=col_name,
+                    marker_color=color,
+                ),
+                row=3,
+                col=1,
+            )
+        fig.add_hline(y=0, line_width=1, line_color="#3a4654", row=3, col=1)
+
+    fig.update_layout(
+        xaxis_rangeslider_visible=False,
+        height=620 if has_flow else 480,
+        margin={"l": 40, "r": 20, "t": 40, "b": 20},
+        legend={"orientation": "h", "y": 1.02},
+        plot_bgcolor=_CHIP_BG,
+        paper_bgcolor=_CHIP_BG,
+        font_color="#e2e8f0",
+        hovermode="x unified",
+        barmode="group",
+    )
+    # 隱藏週末缺口
+    fig.update_xaxes(
+        showgrid=False,
+        zeroline=False,
+        rangebreaks=[{"bounds": ["sat", "mon"]}],
+    )
+    fig.update_yaxes(showgrid=True, gridcolor="#1e293b", zeroline=False)
+
+    return fig
+
+
 def candlestick_chart(
     price_df: pd.DataFrame,
     indicator_df: pd.DataFrame | None = None,

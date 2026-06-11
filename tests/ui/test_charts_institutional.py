@@ -1,0 +1,151 @@
+"""測試籌碼K線圖表 builder 與 UI 用 CSV 價格載入器。"""
+
+from __future__ import annotations
+
+from pathlib import Path
+
+import pandas as pd
+import pytest
+
+import ui.services.queries as queries
+from ui.components.charts import candlestick_with_institutional
+from ui.services.queries import load_symbol_prices
+
+# ═══════════════════════════════════════════════════════════════════════════
+# candlestick_with_institutional
+# ═══════════════════════════════════════════════════════════════════════════
+
+
+def _price_frame() -> pd.DataFrame:
+    dates = pd.to_datetime(["2026-06-08", "2026-06-09", "2026-06-10"])
+    return pd.DataFrame(
+        {
+            "trading_date": dates,
+            "open": [100.0, 101.0, 102.0],
+            "high": [102.0, 103.0, 104.0],
+            "low": [99.0, 100.0, 101.0],
+            "close": [101.0, 102.0, 103.0],
+            "volume": [1000, 2000, 1500],
+        }
+    )
+
+
+def _flow_frame() -> pd.DataFrame:
+    df = pd.DataFrame(
+        {
+            "日期": pd.to_datetime(["2026-06-08", "2026-06-09", "2026-06-10"]),
+            "外資": [120, -80, 50],
+            "投信": [30, 0, -20],
+            "自營商": [-10, 20, 10],
+            "合計": [140, -60, 40],
+        }
+    )
+    for col in ["外資", "投信", "自營商", "合計"]:
+        df[col] = df[col].astype("Int64")
+    return df
+
+
+def test_chart_with_flows_has_five_traces() -> None:
+    """有籌碼資料：K線 + 成交量 + 三條法人 bar，共 5 traces。"""
+    fig = candlestick_with_institutional(_price_frame(), _flow_frame(), title="測試")
+
+    assert len(fig.data) == 5
+    names = [t.name for t in fig.data]
+    assert "外資" in names
+    assert "投信" in names
+    assert "自營商" in names
+    assert fig.layout.height == 620
+
+
+def test_chart_without_flows_has_two_traces() -> None:
+    """flow_df=None：只有 K線 + 成交量。"""
+    fig = candlestick_with_institutional(_price_frame(), None)
+
+    assert len(fig.data) == 2
+    assert fig.layout.height == 480
+
+
+def test_chart_with_empty_flows_behaves_like_none() -> None:
+    """空 flow_df 視同無籌碼資料（兩列模式）。"""
+    empty = pd.DataFrame(columns=["日期", "外資", "投信", "自營商", "合計"])
+    fig = candlestick_with_institutional(_price_frame(), empty)
+
+    assert len(fig.data) == 2
+
+
+def test_chart_candle_colors_follow_tw_convention() -> None:
+    """K線漲紅跌綠（台股慣例），且 hover 採 x unified。"""
+    fig = candlestick_with_institutional(_price_frame(), _flow_frame())
+
+    candle = fig.data[0]
+    assert candle.increasing.line.color == "#E5484D"
+    assert candle.decreasing.line.color == "#2FA46C"
+    assert fig.layout.hovermode == "x unified"
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# load_symbol_prices
+# ═══════════════════════════════════════════════════════════════════════════
+
+_CSV_HEADER = "symbol,name,market,trading_date,open,high,low,close,volume,turnover,source"
+
+
+class _FakeSettings:
+    def __init__(self, path: Path) -> None:
+        self.price_dataset_path = path
+
+
+@pytest.fixture()
+def price_csv(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
+    """兩檔個股、亂序日期的價格 CSV，並 monkeypatch Settings 指向它。"""
+    rows = [
+        _CSV_HEADER,
+        "2330,台積電,TWSE,2026-06-10,1000,1010,995,1005,30000,1,twse",
+        "2330,台積電,TWSE,2026-06-08,980,995,975,990,25000,1,twse",
+        "2330,台積電,TWSE,2026-06-09,990,1000,985,995,28000,1,twse",
+        "5347,世界,TPEX,2026-06-10,100,102,99,101,5000,1,tpex",
+    ]
+    path = tmp_path / "daily_prices.csv"
+    path.write_text("\n".join(rows) + "\n", encoding="utf-8")
+    monkeypatch.setattr(queries, "Settings", lambda: _FakeSettings(path))
+    return path
+
+
+def test_load_symbol_prices_filters_and_sorts_ascending(price_csv: Path) -> None:
+    """只取指定 symbol，依日期昇冪排序。"""
+    df = load_symbol_prices("2330")
+
+    assert len(df) == 3
+    assert set(df["symbol"]) == {"2330"}
+    dates = [str(d) for d in df["trading_date"]]
+    assert dates == ["2026-06-08", "2026-06-09", "2026-06-10"]
+    for col in ["market", "symbol", "trading_date", "open", "high", "low", "close", "volume"]:
+        assert col in df.columns
+
+
+def test_load_symbol_prices_tail_days(price_csv: Path) -> None:
+    """days 限制只取最近 N 個交易日。"""
+    df = load_symbol_prices("2330", days=2)
+
+    assert len(df) == 2
+    assert [str(d) for d in df["trading_date"]] == ["2026-06-09", "2026-06-10"]
+
+
+def test_load_symbol_prices_missing_symbol_returns_empty(price_csv: Path) -> None:
+    """找不到 symbol 時回傳含欄位的空 frame。"""
+    df = load_symbol_prices("9999")
+
+    assert df.empty
+    for col in ["market", "symbol", "trading_date", "open", "high", "low", "close", "volume"]:
+        assert col in df.columns
+
+
+def test_load_symbol_prices_missing_dataset_returns_empty(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """價格資料集不存在時回傳空 frame（不噴錯）。"""
+    monkeypatch.setattr(queries, "Settings", lambda: _FakeSettings(tmp_path / "nope.csv"))
+
+    df = load_symbol_prices("2330")
+
+    assert df.empty

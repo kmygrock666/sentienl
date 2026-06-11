@@ -1,6 +1,6 @@
 """主力買賣超 — 三大法人買賣超排行頁面。
 
-子頁籤：外資 | 投信 | 自營商 | 三大法人 | 外資連買榜
+子頁籤：外資 | 投信 | 自營商 | 三大法人 | 外資連買榜 | 籌碼K線
 """
 
 from __future__ import annotations
@@ -15,12 +15,15 @@ from datetime import date
 import pandas as pd
 import streamlit as st
 
+from ui.components.charts import candlestick_with_institutional
 from ui.components.layout import inject_css, section_header
 from ui.services.db import get_engine
 from ui.services.queries import (
     get_foreign_streak_ranking,
     get_institutional_dates,
+    get_institutional_flow,
     get_institutional_ranking,
+    load_symbol_prices,
 )
 
 st.set_page_config(page_title="Institutional | Sentinel", layout="wide")
@@ -113,6 +116,78 @@ def _render_ranking_tab(net_column: str) -> None:
         _render_ranking_table(net_column, ascending=True)
 
 
+def _fmt_lots(value) -> str:
+    """合計張數顯示：正值帶 +，缺值顯示 —。"""
+    return f"{int(value):+,}" if pd.notna(value) else "—"
+
+
+def _render_kline_tab() -> None:
+    """籌碼K線：K線 + 成交量 + 每日法人買賣超，日期對齊。"""
+    c1, c2, c3 = st.columns(3)
+    symbol = (
+        c1.text_input("股票代號", value=st.session_state.get("inst_kline_symbol", "2330")) or ""
+    ).strip()
+    kline_market = c2.selectbox("市場", ["自動", "TWSE", "TPEX"], key="inst_kline_market")
+    period = c3.selectbox("期間（交易日）", [60, 120, 240], index=1, key="inst_kline_days")
+    if not symbol:
+        st.info("請輸入股票代號")
+        return
+    st.session_state["inst_kline_symbol"] = symbol
+
+    # 價格：CSV 資料集
+    try:
+        price_df = load_symbol_prices(symbol, days=period)
+    except Exception as e:
+        st.error(f"讀取價格資料失敗：{e}")
+        return
+    if price_df.empty:
+        st.warning(f"找不到 {symbol} 的價格資料，請先執行每日同步")
+        return
+    price_df = price_df.assign(trading_date=pd.to_datetime(price_df["trading_date"]))
+
+    # 法人買賣超：自動模式先試 TWSE 再試 TPEX
+    flow_df = pd.DataFrame()
+    markets = ("TWSE", "TPEX") if kline_market == "自動" else (kline_market,)
+    try:
+        for mkt in markets:
+            df = get_institutional_flow(engine, mkt, symbol, days=period)
+            if not df.empty:
+                flow_df = df
+                break
+    except Exception as e:
+        st.warning(f"法人籌碼查詢失敗：{e}")
+
+    if not flow_df.empty:
+        # 圖表需昇冪；日期與價格軸統一為 datetime
+        flow_df = flow_df.sort_values("日期").reset_index(drop=True)
+        flow_df = flow_df.assign(日期=pd.to_datetime(flow_df["日期"]))
+
+    fig = candlestick_with_institutional(
+        price_df,
+        flow_df if not flow_df.empty else None,
+        title=f"{symbol} 籌碼K線",
+    )
+    st.plotly_chart(fig, use_container_width=True)
+
+    if flow_df.empty:
+        st.info("此股票尚無法人籌碼資料")
+        return
+
+    recent5 = flow_df.tail(5)
+    m1, m2, m3 = st.columns(3)
+    m1.metric("近5日外資合計(張)", _fmt_lots(recent5["外資"].sum()))
+    m2.metric("近5日投信合計(張)", _fmt_lots(recent5["投信"].sum()))
+    m3.metric("近5日自營商合計(張)", _fmt_lots(recent5["自營商"].sum()))
+
+    section_header("近 10 個交易日明細", "單位：張")
+    recent10 = flow_df.tail(10).sort_values("日期", ascending=False)
+    net_cols = ["外資", "投信", "自營商", "合計"]
+    fmt: dict = {c: "{:,}" for c in net_cols}
+    fmt["日期"] = "{:%Y-%m-%d}"
+    styled = recent10.style.map(_net_color, subset=net_cols).format(fmt, na_rep="—")
+    st.dataframe(styled, use_container_width=True, hide_index=True)
+
+
 # ── 頁籤 ────────────────────────────────────────────────────────────────────
 tab_specs = [
     ("外資", "foreign_net"),
@@ -120,13 +195,16 @@ tab_specs = [
     ("自營商", "dealer_net"),
     ("三大法人", "total_net"),
 ]
-tabs = st.tabs([label for label, _ in tab_specs] + ["🔥 外資連買榜"])
+tabs = st.tabs([label for label, _ in tab_specs] + ["🔥 外資連買榜", "📈 籌碼K線"])
 
 for tab, (_, net_column) in zip(tabs, tab_specs):
     with tab:
         _render_ranking_tab(net_column)
 
 with tabs[-1]:
+    _render_kline_tab()
+
+with tabs[-2]:
     section_header("外資連買榜", f"以 {sel_date} 往回 10 個資料日計算")
     st.caption(
         "連買天數：從所選日期往回、外資買超（>0）連續的資料日天數，"

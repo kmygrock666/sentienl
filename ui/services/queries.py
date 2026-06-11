@@ -28,6 +28,7 @@ def _strategy_direction_map() -> dict[str, str]:
 
 _DIR_MAP: dict[str, str] = _strategy_direction_map()
 
+from sentinel.config import Settings
 from sentinel.models import (
     DailyPrice,
     DataQuarantine,
@@ -38,6 +39,29 @@ from sentinel.models import (
     Stock,
     TechnicalIndicator,
 )
+from sentinel.storage import load_price_dataset
+
+_PRICE_FRAME_COLUMNS = [
+    "market",
+    "symbol",
+    "trading_date",
+    "open",
+    "high",
+    "low",
+    "close",
+    "volume",
+]
+
+
+def load_symbol_prices(symbol: str, days: int = 120) -> pd.DataFrame:
+    """從 CSV 價格資料集載入單一個股最近 N 個交易日（昇冪）。找不到回空 frame。"""
+    dataset = load_price_dataset(Settings().price_dataset_path)
+    if dataset.empty:
+        return pd.DataFrame(columns=_PRICE_FRAME_COLUMNS)
+    matched = dataset.loc[dataset["symbol"].astype(str) == symbol]
+    if matched.empty:
+        return pd.DataFrame(columns=_PRICE_FRAME_COLUMNS)
+    return matched.sort_values("trading_date").tail(days).reset_index(drop=True)
 
 
 def get_latest_job_runs(engine: Engine, limit: int = 10) -> pd.DataFrame:
