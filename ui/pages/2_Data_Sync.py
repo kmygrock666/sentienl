@@ -29,6 +29,7 @@ from ui.services.command_specs import (
     SYNC,
     SYNC_CALENDAR,
     SYNC_INSTITUTIONAL,
+    SYNC_MAIN_FORCE,
     SYNC_STOCKS,
 )
 
@@ -104,6 +105,7 @@ SECTIONS = [
     ("自動補齊股價", SYNC, "sync"),
     ("Yahoo Finance 補資料", BACKFILL_YAHOO, "backfill_yahoo"),
     ("法人籌碼同步", SYNC_INSTITUTIONAL, "sync_institutional"),
+    ("主力分點同步", SYNC_MAIN_FORCE, "sync_main_force"),
 ]
 
 for title, spec, key in SECTIONS:

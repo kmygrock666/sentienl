@@ -228,6 +228,28 @@ SYNC_INSTITUTIONAL = CommandSpec(
     page_slot="data_sync",
 )
 
+SYNC_MAIN_FORCE = CommandSpec(
+    command_id="sync-main-force",
+    description="同步主力買賣超（券商分點 Top-N，FinMind Sponsor token）",
+    argv_base=_sentinel_base() + ["sync-main-force"],
+    fields=[
+        FieldSpec("symbol", "text", required=True, label="股票代號（例：5347）"),
+        FieldSpec("start-date", "date", required=True, label="開始日期"),
+        FieldSpec("end-date", "date", required=True, label="結束日期"),
+        FieldSpec("top-n", "number", label="Top N 分點", default=15, min_val=1, max_val=50),
+        FieldSpec(
+            "market",
+            "select",
+            label="市場（留空自動偵測）",
+            options=["", "TWSE", "TPEX"],
+            default="",
+        ),
+        FieldSpec("database-url", "text", label="資料庫 URL"),
+    ],
+    validator=_validate_date_range,
+    page_slot="data_sync",
+)
+
 RUN = CommandSpec(
     command_id="run",
     description="執行完整 Pipeline（抓價格 → 計算指標 → 策略掃描）",
@@ -584,6 +606,7 @@ ALL_SPECS: dict[str, CommandSpec] = {
         SYNC,
         BACKFILL_YAHOO,
         SYNC_INSTITUTIONAL,
+        SYNC_MAIN_FORCE,
         RUN,
         CHECK_STOCK,
         IMPORT_MINUTE_BARS,

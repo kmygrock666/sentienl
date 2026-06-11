@@ -26,6 +26,7 @@ from ui.services.queries import (
     get_institutional_dates,
     get_institutional_flow,
     get_institutional_ranking,
+    get_main_force_daily,
     load_symbol_prices,
 )
 
@@ -133,6 +134,84 @@ def _fmt_lots(value) -> str:
     return f"{int(value):+,}" if pd.notna(value) else "—"
 
 
+def _render_main_force_sync_expander(
+    symbol: str, market: str | None, price_df: pd.DataFrame, has_data: bool
+) -> None:
+    """主力資料同步區塊：日期區間（預設 = K 線期間）+ 立即同步按鈕。"""
+    with st.expander("🧲 主力資料同步"):
+        st.caption(
+            "主力買賣超＝券商分點前 N 大買超／賣超合計（FinMind 券商分點資料，"
+            "需 Sponsor 等級 token，請於 .env 設定 TS_FINMIND_TOKEN）。"
+        )
+        if not has_data:
+            st.info(
+                "此股票尚無主力資料。設定 TS_FINMIND_TOKEN 後，"
+                "選擇日期區間並按「立即同步」即可在圖上加入主力買賣超面板。"
+            )
+
+        dates = pd.to_datetime(price_df["trading_date"])
+        c1, c2, c3 = st.columns(3)
+        start_date = c1.date_input("開始日期", value=dates.min().date(), key="mf_sync_start")
+        end_date = c2.date_input("結束日期", value=dates.max().date(), key="mf_sync_end")
+        top_n = c3.number_input(
+            "Top N 分點", min_value=1, max_value=50, value=15, step=1, key="mf_sync_top_n"
+        )
+
+        if not st.button("⬇️ 立即同步主力資料", key="mf_sync_btn"):
+            return
+        if start_date > end_date:
+            st.warning("開始日期不可晚於結束日期")
+            return
+
+        from sqlalchemy.orm import Session as _SASession
+
+        from sentinel.config import Settings as _Settings
+        from sentinel.main_force import (
+            FinMindError,
+            compute_main_force_daily,
+            fetch_trading_daily_report,
+        )
+        from sentinel.persistence import upsert_main_force_daily
+
+        try:
+            with st.spinner("向 FinMind 取得券商分點資料…"):
+                report = fetch_trading_daily_report(
+                    symbol=symbol,
+                    start_date=start_date,
+                    end_date=end_date,
+                    settings=_Settings(),
+                )
+        except FinMindError as e:
+            st.warning(str(e))
+            return
+        except Exception as e:  # noqa: BLE001 - UI 端不讓未知錯誤炸頁面
+            st.error(f"主力資料同步失敗：{e}")
+            return
+
+        main_force = compute_main_force_daily(report, top_n=int(top_n))
+        if main_force.empty:
+            st.info("該期間查無券商分點資料（可能非交易日或標的無分點申報）")
+            return
+
+        try:
+            with _SASession(engine) as session:
+                n = upsert_main_force_daily(
+                    session,
+                    market=market or "TWSE",
+                    symbol=symbol,
+                    frame=main_force,
+                    top_n=int(top_n),
+                )
+                session.commit()
+        except Exception as e:  # noqa: BLE001
+            st.error(f"主力資料寫入失敗：{e}")
+            return
+
+        st.success(f"已更新 {n} 日主力資料")
+        st.cache_data.clear()
+        st.rerun()
+
+
 def _render_kline_tab() -> None:
     """籌碼K線：K線 + 成交量 + 每日法人買賣超，日期對齊。"""
     c1, c2, c3 = st.columns(3)
@@ -195,12 +274,27 @@ def _render_kline_tab() -> None:
         flow_df = flow_df.sort_values("日期").reset_index(drop=True)
         flow_df = flow_df.assign(日期=pd.to_datetime(flow_df["日期"]))
 
+    # ── 主力買賣超（券商分點 Top-N；無資料時圖表自動省略該列） ─────────────
+    main_force_df = pd.DataFrame()
+    if resolved_market is not None:
+        try:
+            main_force_df = get_main_force_daily(engine, resolved_market, symbol, days=period)
+        except Exception as e:
+            st.warning(f"主力買賣超查詢失敗：{e}")
+    if not main_force_df.empty:
+        main_force_df = main_force_df.assign(日期=pd.to_datetime(main_force_df["日期"]))
+
     fig = candlestick_with_institutional(
         price_df,
         flow_df if not flow_df.empty else None,
         title=f"{symbol} 籌碼K線",
+        main_force_df=main_force_df if not main_force_df.empty else None,
     )
     st.plotly_chart(fig, use_container_width=True)
+
+    _render_main_force_sync_expander(
+        symbol, resolved_market, price_df, has_data=not main_force_df.empty
+    )
 
     if flow_df.empty:
         st.info("此股票尚無法人籌碼資料")

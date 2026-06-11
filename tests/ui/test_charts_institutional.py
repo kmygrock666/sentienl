@@ -84,6 +84,65 @@ def test_chart_candle_colors_follow_tw_convention() -> None:
 
 
 # ═══════════════════════════════════════════════════════════════════════════
+# candlestick_with_institutional + 主力買賣超（第 4 列）
+# ═══════════════════════════════════════════════════════════════════════════
+
+
+def _main_force_frame() -> pd.DataFrame:
+    df = pd.DataFrame(
+        {
+            "日期": pd.to_datetime(["2026-06-08", "2026-06-09", "2026-06-10"]),
+            "主力買超": [150, 80, 60],
+            "主力賣超": [-110, -40, -90],
+            "主力買賣超": [40, 40, -30],
+        }
+    )
+    for col in ["主力買超", "主力賣超", "主力買賣超"]:
+        df[col] = df[col].astype("Int64")
+    return df
+
+
+def test_chart_with_flows_and_main_force_has_six_traces() -> None:
+    """法人 + 主力都有資料：K線 + 成交量 + 3 法人 + 1 主力 = 6 traces，4 列模式。"""
+    fig = candlestick_with_institutional(
+        _price_frame(), _flow_frame(), title="測試", main_force_df=_main_force_frame()
+    )
+
+    assert len(fig.data) == 6
+    names = [t.name for t in fig.data]
+    assert "主力買賣超" in names
+    mf_trace = next(t for t in fig.data if t.name == "主力買賣超")
+    assert mf_trace.marker.color == "#9D7CD8"
+    assert fig.layout.height == 740
+
+
+def test_chart_main_force_bars_align_to_main_force_dates() -> None:
+    """主力 bar 的 x 軸必須等於 main_force_df 的日期。"""
+    mf = _main_force_frame()
+    fig = candlestick_with_institutional(_price_frame(), _flow_frame(), main_force_df=mf)
+
+    mf_trace = next(t for t in fig.data if t.name == "主力買賣超")
+    assert list(mf_trace.x) == list(mf["日期"])
+
+
+def test_chart_empty_main_force_behaves_like_absent() -> None:
+    """空主力 frame 視同未提供：維持 3 列 / 5 traces。"""
+    empty_mf = pd.DataFrame(columns=["日期", "主力買超", "主力賣超", "主力買賣超"])
+    fig = candlestick_with_institutional(_price_frame(), _flow_frame(), main_force_df=empty_mf)
+
+    assert len(fig.data) == 5
+    assert fig.layout.height == 620
+
+
+def test_chart_main_force_without_flows() -> None:
+    """只有主力、無法人：3 列（K線/量/主力），3 traces。"""
+    fig = candlestick_with_institutional(_price_frame(), None, main_force_df=_main_force_frame())
+
+    assert len(fig.data) == 3
+    assert [t.name for t in fig.data][-1] == "主力買賣超"
+
+
+# ═══════════════════════════════════════════════════════════════════════════
 # load_symbol_prices
 # ═══════════════════════════════════════════════════════════════════════════
 

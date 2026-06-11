@@ -27,24 +27,44 @@ _FLOW_COLORS = {
     "投信": "#4DB8C4",
     "自營商": "#8E9BA8",
 }
+_MAIN_FORCE_COLOR = "#9D7CD8"
 
 
 def candlestick_with_institutional(
     price_df: pd.DataFrame,
     flow_df: pd.DataFrame | None = None,
     title: str = "",
+    main_force_df: pd.DataFrame | None = None,
 ) -> go.Figure:
-    """三列子圖：K線、成交量、三大法人買賣超（張）。
+    """K線、成交量、三大法人買賣超、主力買賣超（張）的多列子圖。
 
     price_df: trading_date/open/high/low/close/volume（已按日期昇冪）
     flow_df: get_institutional_flow 輸出（日期/外資/投信/自營商/合計，張，可為 None/空）
+    main_force_df: get_main_force_daily 輸出（日期/主力買超/主力賣超/主力買賣超，張，
+        可為 None/空）；提供時在最下方加一列主力買賣超 bar。
     """
     if flow_df is not None and flow_df.empty:
         flow_df = None
+    if main_force_df is not None and main_force_df.empty:
+        main_force_df = None
     has_flow = flow_df is not None
-    rows = 3 if has_flow else 2
-    row_heights = [0.5, 0.2, 0.3] if has_flow else [0.7, 0.3]
-    subplot_titles = [title, "成交量"] + (["三大法人買賣超（張）"] if has_flow else [])
+    has_main_force = main_force_df is not None
+
+    rows = 2 + int(has_flow) + int(has_main_force)
+    if has_flow and has_main_force:
+        row_heights = [0.4, 0.15, 0.225, 0.225]
+        chart_height = 740
+    elif has_flow or has_main_force:
+        row_heights = [0.5, 0.2, 0.3]
+        chart_height = 620
+    else:
+        row_heights = [0.7, 0.3]
+        chart_height = 480
+    subplot_titles = (
+        [title, "成交量"]
+        + (["三大法人買賣超（張）"] if has_flow else [])
+        + (["主力買賣超（張）"] if has_main_force else [])
+    )
 
     fig = make_subplots(
         rows=rows,
@@ -95,9 +115,23 @@ def candlestick_with_institutional(
             )
         fig.add_hline(y=0, line_width=1, line_color="#3a4654", row=3, col=1)
 
+    if main_force_df is not None:
+        main_force_row = rows  # 永遠是最後一列
+        fig.add_trace(
+            go.Bar(
+                x=main_force_df["日期"],
+                y=main_force_df["主力買賣超"],
+                name="主力買賣超",
+                marker_color=_MAIN_FORCE_COLOR,
+            ),
+            row=main_force_row,
+            col=1,
+        )
+        fig.add_hline(y=0, line_width=1, line_color="#3a4654", row=main_force_row, col=1)
+
     fig.update_layout(
         xaxis_rangeslider_visible=False,
-        height=620 if has_flow else 480,
+        height=chart_height,
         margin={"l": 40, "r": 20, "t": 40, "b": 20},
         legend={"orientation": "h", "y": 1.02},
         plot_bgcolor=_CHIP_BG,

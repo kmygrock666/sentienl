@@ -10,12 +10,13 @@ from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session
 
 from sentinel.db import create_db_engine, create_schema
-from sentinel.models import InstitutionalFlow, Stock
+from sentinel.models import InstitutionalFlow, MainForceDaily, Stock
 from ui.services.queries import (
     get_foreign_streak_ranking,
     get_institutional_dates,
     get_institutional_flow,
     get_institutional_ranking,
+    get_main_force_daily,
 )
 
 
@@ -407,6 +408,127 @@ def test_get_foreign_streak_ranking_days_window(engine: Engine) -> None:
 
     df_one = get_foreign_streak_ranking(engine, end_date=date(2026, 6, 10), days=1)
     assert df_one.empty  # 視窗內最多 streak=1，全部排除
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# get_main_force_daily
+# ═══════════════════════════════════════════════════════════════════════════
+
+_MF_COLUMNS = ["日期", "主力買超", "主力賣超", "主力買賣超"]
+
+
+def _insert_main_force(engine: Engine, rows: list[dict]) -> None:
+    with Session(engine) as s:
+        for row in rows:
+            s.add(MainForceDaily(**row))
+        s.commit()
+
+
+def test_get_main_force_daily_asc_order_and_lot_conversion(engine: Engine) -> None:
+    """應依日期昇冪（供畫圖），且股數轉換為張數。"""
+    _insert_main_force(
+        engine,
+        [
+            {
+                "market": "TPEX",
+                "symbol": "5347",
+                "trading_date": date(2026, 6, 10),
+                "main_buy": 30000,
+                "main_sell": -10000,
+                "main_net": 20000,
+                "top_n": 15,
+            },
+            {
+                "market": "TPEX",
+                "symbol": "5347",
+                "trading_date": date(2026, 6, 9),
+                "main_buy": 150000,
+                "main_sell": -110000,
+                "main_net": 40000,
+                "top_n": 15,
+            },
+        ],
+    )
+
+    df = get_main_force_daily(engine, "TPEX", "5347")
+
+    assert list(df.columns) == _MF_COLUMNS
+    assert list(df["日期"]) == [date(2026, 6, 9), date(2026, 6, 10)]
+    assert list(df["主力買超"]) == [150, 30]
+    assert list(df["主力賣超"]) == [-110, -10]
+    assert list(df["主力買賣超"]) == [40, 20]
+
+
+def test_get_main_force_daily_none_passthrough_int64(engine: Engine) -> None:
+    """None 欄位應保持缺值（Int64 NA），不可變成 0 或 float。"""
+    _insert_main_force(
+        engine,
+        [
+            {
+                "market": "TWSE",
+                "symbol": "2330",
+                "trading_date": date(2026, 6, 10),
+                "main_buy": 5000,
+                "main_sell": None,
+                "main_net": None,
+                "top_n": 15,
+            },
+        ],
+    )
+
+    df = get_main_force_daily(engine, "TWSE", "2330")
+
+    assert df["主力買超"].iloc[0] == 5
+    assert pd.isna(df["主力賣超"].iloc[0])
+    assert pd.isna(df["主力買賣超"].iloc[0])
+    for col in _MF_COLUMNS[1:]:
+        assert df[col].dtype == "Int64"
+
+
+def test_get_main_force_daily_days_limit_keeps_latest(engine: Engine) -> None:
+    """days 限制應保留最近 N 日，仍以昇冪輸出。"""
+    _insert_main_force(
+        engine,
+        [
+            {
+                "market": "TPEX",
+                "symbol": "5347",
+                "trading_date": date(2026, 6, d),
+                "main_buy": d * 1000,
+                "main_sell": -1000,
+                "main_net": d * 1000 - 1000,
+                "top_n": 15,
+            }
+            for d in range(1, 6)
+        ],
+    )
+
+    df = get_main_force_daily(engine, "TPEX", "5347", days=3)
+
+    assert list(df["日期"]) == [date(2026, 6, 3), date(2026, 6, 4), date(2026, 6, 5)]
+
+
+def test_get_main_force_daily_filters_market_and_empty(engine: Engine) -> None:
+    """market/symbol 過濾生效；無資料時回傳含欄位的空 DataFrame。"""
+    _insert_main_force(
+        engine,
+        [
+            {
+                "market": "TWSE",
+                "symbol": "6201",
+                "trading_date": date(2026, 6, 10),
+                "main_buy": 1000,
+                "main_sell": -2000,
+                "main_net": -1000,
+                "top_n": 15,
+            },
+        ],
+    )
+
+    assert get_main_force_daily(engine, "TPEX", "6201").empty
+    empty = get_main_force_daily(engine, "TWSE", "9999")
+    assert empty.empty
+    assert list(empty.columns) == _MF_COLUMNS
 
 
 def test_get_foreign_streak_ranking_market_filter_and_empty(engine: Engine) -> None:
