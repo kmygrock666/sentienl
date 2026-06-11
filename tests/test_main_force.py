@@ -134,6 +134,31 @@ def test_compute_empty_input_returns_empty_frame_with_columns() -> None:
     assert list(out.columns) == _COMPUTE_COLUMNS
 
 
+def test_compute_duplicate_branch_rows_aggregated_once() -> None:
+    """同一 trader_id 在同日出現兩列時，應先合併再計入 top_n。
+
+    A001: +100 net (row 1) + +50 net (row 2) → aggregate net = +150
+    D004: −30 net
+    top_n=2: main_buy=150（A001 計一次）、main_sell=−30、branch_count=2
+    """
+    report = _report_frame(
+        [
+            ["2026-06-09", "A001", 100, 0],
+            ["2026-06-09", "A001", 50, 0],
+            ["2026-06-09", "D004", 10, 40],
+        ]
+    )
+
+    out = compute_main_force_daily(report, top_n=2)
+
+    assert len(out) == 1
+    row = out.iloc[0]
+    assert row["main_buy"] == 150
+    assert row["main_sell"] == -30
+    assert row["main_net"] == 120
+    assert row["branch_count"] == 2
+
+
 # ═══════════════════════════════════════════════════════════════════════════
 # fetch_trading_daily_report
 # ═══════════════════════════════════════════════════════════════════════════
@@ -248,6 +273,25 @@ def test_fetch_network_error_wrapped_as_finmind_error(monkeypatch: pytest.Monkey
 
     with pytest.raises(FinMindError):
         fetch_trading_daily_report("5347", date(2026, 6, 2), date(2026, 6, 9), _settings("token-x"))
+
+
+def test_fetch_network_error_redacts_token(monkeypatch: pytest.MonkeyPatch) -> None:
+    """requests 例外訊息中的 token 不得出現在 FinMindError 裡。"""
+    import requests as _requests
+
+    secret = "SECRET-TOKEN-123"
+
+    def _boom(url, params=None, timeout=None):
+        raise _requests.ConnectionError(
+            f"Max retries exceeded with url: /?dataset=X&token={secret}"
+        )
+
+    monkeypatch.setattr("sentinel.main_force.requests.get", _boom)
+
+    with pytest.raises(FinMindError) as excinfo:
+        fetch_trading_daily_report("5347", date(2026, 6, 2), date(2026, 6, 9), _settings(secret))
+
+    assert secret not in str(excinfo.value)
 
 
 # ═══════════════════════════════════════════════════════════════════════════

@@ -55,6 +55,13 @@ def _to_iso(value: DateLike) -> str:
     return value.isoformat() if isinstance(value, date) else str(value)
 
 
+def _redact_token(message: str, token: str | None) -> str:
+    """錯誤訊息中的 token 一律遮蔽，避免洩漏到終端／UI／日誌。"""
+    if token:
+        message = message.replace(token, "***")
+    return message
+
+
 def fetch_trading_daily_report(
     symbol: str,
     start_date: DateLike,
@@ -81,7 +88,9 @@ def fetch_trading_daily_report(
             settings.finmind_api_url, params=params, timeout=settings.timeout_seconds
         )
     except requests.RequestException as exc:
-        raise FinMindError(f"FinMind API 連線失敗：{exc}") from exc
+        raise FinMindError(
+            f"FinMind API 連線失敗：{_redact_token(str(exc), settings.finmind_token)}"
+        ) from exc
 
     try:
         payload = response.json()

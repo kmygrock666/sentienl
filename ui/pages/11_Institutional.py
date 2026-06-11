@@ -159,6 +159,9 @@ def _render_main_force_sync_expander(
 
         if not st.button("⬇️ 立即同步主力資料", key="mf_sync_btn"):
             return
+        if market is None:
+            st.warning("無法自動判斷市場，請在上方「市場」選擇 TWSE 或 TPEX 後再同步")
+            return
         if start_date > end_date:
             st.warning("開始日期不可晚於結束日期")
             return
@@ -197,7 +200,7 @@ def _render_main_force_sync_expander(
             with _SASession(engine) as session:
                 n = upsert_main_force_daily(
                     session,
-                    market=market or "TWSE",
+                    market=market,
                     symbol=symbol,
                     frame=main_force,
                     top_n=int(top_n),
