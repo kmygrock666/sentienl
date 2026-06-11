@@ -2,9 +2,14 @@
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 import streamlit as st
 
 from ui.components.layout import status_badge_html
+
+if TYPE_CHECKING:
+    from ui.services.command_runner import TaskRun
 
 
 def render_log_tail(stdout: str, stderr: str, max_chars: int = 6000) -> None:
@@ -19,7 +24,7 @@ def render_log_tail(stdout: str, stderr: str, max_chars: int = 6000) -> None:
             st.code(tail, language="text")
 
 
-def render_task_card(task: "TaskRun") -> None:  # type: ignore[name-defined]
+def render_task_card(task: TaskRun) -> None:
     """渲染單一任務卡片（狀態、指令預覽、時間、日誌）。"""
     with st.container():
         # 頂列：狀態 + 指令 ID + 時間

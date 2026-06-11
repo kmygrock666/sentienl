@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 from datetime import date, datetime, timedelta
 from pathlib import Path
-from typing import Dict, Iterable, List, Optional, Tuple
+from typing import Iterable, List, Optional, Tuple
 
 import pandas as pd
 from sqlalchemy.orm import Session
@@ -11,7 +11,6 @@ from sqlalchemy.orm import Session
 from sentinel.logging_utils import get_logger
 from sentinel.minute_bars import (
     calc_5day_ma,
-    calc_intraday_avg,
     get_prev_close,
     is_limit_up_at_open,
     load_5min_bars,
@@ -108,56 +107,65 @@ def run_minute_backtest(
         if signal_frame.empty:
             return pd.DataFrame(), pd.DataFrame()
 
-        # 逐訊號模擬交易（取得所有候選交易）
-        candidates: List[dict] = []
-        for signal in strategy_signals.to_dict(orient="records"):
-            trade = _simulate_single_trade(
-                daily_session=daily_session,
-                intraday_session=intraday_session,
-                signal=signal,
-                strategy=strategy,
-                take_profit_pct=take_profit_pct,
-                limit_up_pct=limit_up_pct,
-                end_date=end_date,
-            )
-            if trade is not None:
-                candidates.append(trade)
+    # ── 共用流程：逐訊號模擬交易 → 候選 → 資金邏輯（兩種模式皆適用）──────────
+    # signal_frame 與 strategies 已由上方 if/else 各自備妥。
+    strategy_by_id = {s["strategy_id"]: s for s in strategies}
+    candidates: List[dict] = []
+    for signal in signal_frame.to_dict(orient="records"):
+        strategy = strategy_by_id.get(signal.get("strategy_id"))
+        if strategy is None:
+            continue
+        minute_cfg = strategy.get("backtest", {}).get("minute_bar_execution", {})
+        take_profit_pct = minute_cfg.get("take_profit_pct", DEFAULT_TAKE_PROFIT_PCT)
+        limit_up_pct = minute_cfg.get("limit_up_pct", LIMIT_UP_PCT)
+        trade = _simulate_single_trade(
+            daily_session=daily_session,
+            intraday_session=intraday_session,
+            signal=signal,
+            strategy=strategy,
+            take_profit_pct=take_profit_pct,
+            limit_up_pct=limit_up_pct,
+            end_date=end_date,
+        )
+        if trade is not None:
+            candidates.append(trade)
 
-        # 套用資金限制邏輯
-        if initial_capital is not None:
-            candidates.sort(key=lambda x: (x["entry_date"], x["symbol"]))
-            balance = initial_capital
-            active_trades = []
-            final_trades = []
+    # 套用資金限制邏輯
+    trades: List[dict] = []
+    if initial_capital is not None:
+        candidates.sort(key=lambda x: (x["entry_date"], x["symbol"]))
+        balance = initial_capital
+        active_trades: List[dict] = []
+        final_trades: List[dict] = []
 
-            # 取得回測區間內所有交易日
-            all_dates = sorted(signal_frame["trading_date"].unique())
-            for d in all_dates:
-                if isinstance(d, str):
-                    d = date.fromisoformat(d)
+        # 取得回測區間內所有交易日
+        all_dates = sorted(signal_frame["trading_date"].unique())
+        for d in all_dates:
+            if isinstance(d, str):
+                d = date.fromisoformat(d)
 
-                # 1. 處理今日出場
-                still_active = []
-                for t in active_trades:
-                    if t["exit_date"] <= d:
-                        balance += position_size * (1.0 + t["trade_return"])
-                        t["balance"] = balance
-                        final_trades.append(t)
-                    else:
-                        still_active.append(t)
-                active_trades = still_active
+            # 1. 處理今日出場
+            still_active = []
+            for t in active_trades:
+                if t["exit_date"] <= d:
+                    balance += position_size * (1.0 + t["trade_return"])
+                    t["balance"] = balance
+                    final_trades.append(t)
+                else:
+                    still_active.append(t)
+            active_trades = still_active
 
-                # 2. 處理今日進場
-                todays_signals = [c for c in candidates if c["entry_date"] == d]
-                for s in todays_signals:
-                    if balance >= position_size:
-                        balance -= position_size
-                        active_trades.append(s)
+            # 2. 處理今日進場
+            todays_signals = [c for c in candidates if c["entry_date"] == d]
+            for s in todays_signals:
+                if balance >= position_size:
+                    balance -= position_size
+                    active_trades.append(s)
 
-            final_trades.extend(active_trades)  # 包含期末未平倉
-            trades.extend(final_trades)
-        else:
-            trades.extend(candidates)
+        final_trades.extend(active_trades)  # 包含期末未平倉
+        trades.extend(final_trades)
+    else:
+        trades.extend(candidates)
 
     trade_frame = pd.DataFrame(trades)
     if trade_frame.empty:
