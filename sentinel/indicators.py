@@ -345,7 +345,6 @@ INDICATOR_SPECS: Dict[str, Dict[str, object]] = {
         "params": {},
         "source_field": "price_levels",
     },
-    "high_max_2d_raw": {"indicator_name": "high_max_2d_raw", "params": {}, "source_field": "high"},
     "ma180": {
         "indicator_name": "ma180",
         "params": {"window": 180, "source": "close"},

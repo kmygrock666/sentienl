@@ -344,7 +344,7 @@ def build_parser() -> argparse.ArgumentParser:
         "--gain-threshold",
         type=float,
         default=0.05,
-        help="Daily gain threshold (0.05 targets 5%+ gains).",
+        help="Daily gain threshold (0.05 targets 5%%+ gains).",
     )
     update_intraday_parser.add_argument(
         "--min-samples",
@@ -389,7 +389,7 @@ def build_parser() -> argparse.ArgumentParser:
         "--min-gain",
         type=float,
         default=0.075,
-        help="Daily gain threshold (default: 0.075 for 7.5%+).",
+        help="Daily gain threshold (default: 0.075 for 7.5%%+).",
     )
     intraday_run_parser.add_argument(
         "--notify-telegram",
@@ -422,7 +422,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
 
     monitor_trades_parser = subparsers.add_parser(
-        "monitor-intraday-trades", help="Monitor open trades for 2% SL/TP thresholds"
+        "monitor-intraday-trades", help="Monitor open trades for 2%% SL/TP thresholds"
     )
     monitor_trades_parser.add_argument(
         "--threshold",

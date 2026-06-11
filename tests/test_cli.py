@@ -4,6 +4,7 @@ import json
 from pathlib import Path
 
 import pandas as pd
+import pytest
 from sqlalchemy.orm import Session
 
 from sentinel.cli import main
@@ -392,3 +393,20 @@ def test_backtest_writes_report_and_trades(tmp_path, monkeypatch) -> None:
     assert (backtest_output_dir / "report.csv").exists()
     assert (backtest_output_dir / "trades.csv").exists()
     assert (backtest_output_dir / "metadata.json").exists()
+
+
+@pytest.mark.unit
+def test_all_subcommand_help_strings_render() -> None:
+    """help 字串中的 % 必須跳脫，否則 argparse 產生 --help 時會 ValueError。"""
+    import argparse
+
+    from sentinel.cli import build_parser
+
+    parser = build_parser()
+    parser.format_help()  # 主 help
+    sub_actions = [
+        a for a in parser._subparsers._group_actions if isinstance(a, argparse._SubParsersAction)
+    ]
+    for sub in sub_actions:
+        for subparser in sub.choices.values():
+            subparser.format_help()  # 任一格式碼問題都會在此拋例外
