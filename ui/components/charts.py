@@ -108,11 +108,19 @@ def candlestick_with_institutional(
         barmode="relative",
     )
     # rangebreaks 隱藏週六／日缺口；國定假日仍會留空（刻意保留，符合 TWSE 慣例）
+    # showspikes + spikemode="across"：游標所在日期以琥珀虛線貫穿 K 線／成交量／買賣超三個面板
     fig.update_xaxes(
         showgrid=False,
         zeroline=False,
         rangebreaks=[{"bounds": ["sat", "mon"]}],
+        showspikes=True,
+        spikemode="across",
+        spikesnap="cursor",
+        spikedash="dash",
+        spikethickness=1,
+        spikecolor="#F0A03C",
     )
+    fig.update_layout(spikedistance=-1)
     fig.update_yaxes(showgrid=True, gridcolor="#1e293b", zeroline=False)
 
     return fig

@@ -1,6 +1,9 @@
-"""主力買賣超 — 三大法人買賣超排行頁面。
+"""法人買賣超 — 三大法人（外資／投信／自營商）買賣超排行頁面。
 
 子頁籤：外資 | 投信 | 自營商 | 三大法人 | 外資連買榜 | 籌碼K線
+
+註：「主力買賣超」在台股慣例指券商分點前 N 大買賣超合計（隱形大戶），
+與本頁的三大法人申報資料（T86）不同，命名上刻意區分。
 """
 
 from __future__ import annotations
@@ -34,8 +37,11 @@ def _cached_symbol_prices(symbol: str, days: int, market: str | None) -> pd.Data
 
 st.set_page_config(page_title="Institutional | Sentinel", layout="wide")
 inject_css()
-st.title("💰 主力買賣超")
-st.caption("三大法人買賣超排行（資料來源：sync-institutional）")
+st.title("💰 法人買賣超")
+st.caption(
+    "三大法人（外資／投信／自營商）買賣超排行，資料來源：sync-institutional（T86）。"
+    "註：與券商分點的「主力買賣超」不同。"
+)
 
 # 台股慣例：買超紅、賣超綠；琥珀為強調色
 _UP = "#E5484D"
