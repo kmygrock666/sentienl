@@ -63,3 +63,6 @@ htmlcov/
 # macOS
 .DS_Store
 Thumbs.db
+
+# Agent skills (外部安裝，非專案程式碼)
+.agents/
