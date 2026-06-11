@@ -203,6 +203,31 @@ BACKFILL_YAHOO = CommandSpec(
     page_slot="data_sync",
 )
 
+SYNC_INSTITUTIONAL = CommandSpec(
+    command_id="sync-institutional",
+    description="同步三大法人買賣超（TWSE T86 / TPEX）",
+    argv_base=_sentinel_base() + ["sync-institutional"],
+    fields=[
+        FieldSpec("date", "date", required=True, label="資料日期"),
+        FieldSpec(
+            "market",
+            "multiselect",
+            label="市場",
+            options=["TWSE", "TPEX"],
+            default=["TWSE", "TPEX"],
+        ),
+        FieldSpec(
+            "source-mode",
+            "select",
+            label="資料來源模式",
+            options=["auto", "fixture", "network"],
+            default="auto",
+        ),
+        FieldSpec("database-url", "text", label="資料庫 URL"),
+    ],
+    page_slot="data_sync",
+)
+
 RUN = CommandSpec(
     command_id="run",
     description="執行完整 Pipeline（抓價格 → 計算指標 → 策略掃描）",
@@ -558,6 +583,7 @@ ALL_SPECS: dict[str, CommandSpec] = {
         SYNC_STOCKS,
         SYNC,
         BACKFILL_YAHOO,
+        SYNC_INSTITUTIONAL,
         RUN,
         CHECK_STOCK,
         IMPORT_MINUTE_BARS,

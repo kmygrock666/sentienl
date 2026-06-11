@@ -1,6 +1,6 @@
 """Data Sync — 資料同步頁面。
 
-功能：init-db, sync-calendar, sync-stocks, sync, backfill-yahoo
+功能：init-db, sync-calendar, sync-stocks, sync, backfill-yahoo, sync-institutional
 """
 
 from __future__ import annotations
@@ -28,13 +28,14 @@ from ui.services.command_specs import (
     INIT_DB,
     SYNC,
     SYNC_CALENDAR,
+    SYNC_INSTITUTIONAL,
     SYNC_STOCKS,
 )
 
 st.set_page_config(page_title="Data Sync | Sentinel", layout="wide")
 inject_css()
 st.title("🔄 Data Sync")
-st.caption("資料庫初始化、行事曆、股票主檔、股價補齊")
+st.caption("資料庫初始化、行事曆、股票主檔、股價補齊、法人籌碼")
 
 store = get_store()
 poll_all_running()
@@ -102,6 +103,7 @@ SECTIONS = [
     ("股票主檔同步", SYNC_STOCKS, "sync_stocks"),
     ("自動補齊股價", SYNC, "sync"),
     ("Yahoo Finance 補資料", BACKFILL_YAHOO, "backfill_yahoo"),
+    ("法人籌碼同步", SYNC_INSTITUTIONAL, "sync_institutional"),
 ]
 
 for title, spec, key in SECTIONS:

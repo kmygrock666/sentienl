@@ -122,6 +122,29 @@ def test_inspect_status_argv_contains_subcommand() -> None:
     assert "status" in argv
 
 
+def test_sync_institutional_argv() -> None:
+    """sync-institutional 應正確組裝 argv（含日期、多市場、來源模式）。"""
+    from ui.services.command_specs import ALL_SPECS, SYNC_INSTITUTIONAL, build_argv
+
+    assert ALL_SPECS["sync-institutional"] is SYNC_INSTITUTIONAL
+    required = {f.name for f in SYNC_INSTITUTIONAL.fields if f.required}
+    assert required == {"date"}
+
+    params = {
+        "date": "2026-06-10",
+        "market": ["TWSE", "TPEX"],
+        "source-mode": "auto",
+    }
+    argv = build_argv(SYNC_INSTITUTIONAL, params)
+    assert argv[:4] == [sys.executable, "-m", "sentinel", "sync-institutional"]
+    assert "--date" in argv
+    assert "2026-06-10" in argv
+    market_values = [argv[i + 1] for i, a in enumerate(argv) if a == "--market"]
+    assert market_values == ["TWSE", "TPEX"]
+    assert "--source-mode" in argv
+    assert "--database-url" not in argv
+
+
 def test_sync_calendar_requires_date_fields() -> None:
     """sync-calendar 應有 start-date 與 end-date 兩個 required 欄位。"""
     from ui.services.command_specs import SYNC_CALENDAR

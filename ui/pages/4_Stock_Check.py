@@ -339,6 +339,40 @@ qa3.code(_json.dumps(params_copy, ensure_ascii=False), language="json")
 
 st.divider()
 
+# ── 法人籌碼 ────────────────────────────────────────────────────────────────
+section_header("法人籌碼", "近 10 個交易日三大法人買賣超（張）")
+
+_flow_symbol = (meta.get("symbol") or symbol or "").strip()
+if _flow_symbol:
+    from ui.services.queries import get_institutional_flow
+
+    flow_df = None
+    try:
+        engine = get_engine()
+        for _flow_market in ("TWSE", "TPEX"):
+            df = get_institutional_flow(engine, _flow_market, _flow_symbol)
+            if not df.empty:
+                flow_df = df
+                break
+    except Exception as exc:
+        st.warning(f"法人籌碼查詢失敗：{exc}")
+
+    if flow_df is None or flow_df.empty:
+        st.info("尚無法人籌碼資料，請先至 Data Sync 執行 sync-institutional")
+    else:
+        import pandas as _pd
+
+        streak = 0
+        for v in flow_df["外資"]:
+            if _pd.notna(v) and v > 0:
+                streak += 1
+            else:
+                break
+        st.metric("外資連續買超天數", f"{streak} 天")
+        st.dataframe(flow_df, use_container_width=True, hide_index=True)
+
+st.divider()
+
 # ── 完整原始輸出（debug）─────────────────────────────────────────────────────
 with st.expander("完整原始輸出（debug）", expanded=not bool(signals)):
     render_log_tail(task.stdout_tail, task.stderr_tail)

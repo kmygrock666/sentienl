@@ -31,6 +31,7 @@ _DIR_MAP: dict[str, str] = _strategy_direction_map()
 from sentinel.models import (
     DailyPrice,
     DataQuarantine,
+    InstitutionalFlow,
     IntradayTrade,
     JobRun,
     ScanResult,
@@ -348,6 +349,45 @@ def get_intraday_trades(engine: Engine, status: Optional[str] = None) -> pd.Data
             for r in rows
         ]
     )
+
+
+_INSTITUTIONAL_COLUMNS = ["日期", "外資", "投信", "自營商", "合計"]
+
+
+def get_institutional_flow(
+    engine: Engine, market: str, symbol: str, days: int = 10
+) -> pd.DataFrame:
+    """近 N 個交易日的法人買賣超。欄位：日期, 外資, 投信, 自營商, 合計（張）。"""
+
+    def _to_lots(value: int | None) -> int | None:
+        return int(value / 1000) if value is not None else None
+
+    with Session(engine) as s:
+        rows = (
+            s.query(InstitutionalFlow)
+            .filter(InstitutionalFlow.market == market, InstitutionalFlow.symbol == symbol)
+            .order_by(InstitutionalFlow.trading_date.desc())
+            .limit(days)
+            .all()
+        )
+    if not rows:
+        return pd.DataFrame(columns=_INSTITUTIONAL_COLUMNS)
+    df = pd.DataFrame(
+        [
+            {
+                "日期": r.trading_date,
+                "外資": _to_lots(r.foreign_net),
+                "投信": _to_lots(r.investment_trust_net),
+                "自營商": _to_lots(r.dealer_net),
+                "合計": _to_lots(r.total_net),
+            }
+            for r in rows
+        ]
+    )
+    # 缺值保持為 NA（避免 None 混入時整欄被轉為 float）
+    for col in _INSTITUTIONAL_COLUMNS[1:]:
+        df[col] = df[col].astype("Int64")
+    return df
 
 
 def get_latest_price_date(engine: Engine) -> Optional[date]:
