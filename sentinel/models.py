@@ -112,6 +112,29 @@ class InstitutionalFlow(Base):
     total_net: Mapped[Optional[int]] = mapped_column(Integer)
 
 
+class MainForceDaily(Base):
+    """主力買賣超（券商分點 Top-N 合計，單位：股）。
+
+    main_buy  = 前 N 大買超分點淨額合計（>= 0）
+    main_sell = 前 N 大賣超分點淨額合計（<= 0，負值）
+    main_net  = main_buy + main_sell
+    """
+
+    __tablename__ = "main_force_daily"
+    __table_args__ = (PrimaryKeyConstraint("market", "symbol", "trading_date"),)
+
+    market: Mapped[str] = mapped_column(String(16), nullable=False)
+    symbol: Mapped[str] = mapped_column(String(16), nullable=False)
+    trading_date: Mapped[date] = mapped_column(Date, nullable=False)
+    main_buy: Mapped[Optional[int]] = mapped_column(Integer)
+    main_sell: Mapped[Optional[int]] = mapped_column(Integer)
+    main_net: Mapped[Optional[int]] = mapped_column(Integer)
+    top_n: Mapped[int] = mapped_column(Integer, nullable=False, default=15)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=datetime.utcnow
+    )
+
+
 class MarginBalance(Base):
     __tablename__ = "margin_balances"
     __table_args__ = (PrimaryKeyConstraint("market", "symbol", "trading_date"),)

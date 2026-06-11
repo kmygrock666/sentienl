@@ -230,6 +230,32 @@ def build_parser() -> argparse.ArgumentParser:
         help="SQLAlchemy database URL. Defaults to TS_DATABASE_URL from environment.",
     )
 
+    main_force_parser = subparsers.add_parser(
+        "sync-main-force",
+        help="Sync 主力買賣超 (broker-branch top-N) for a symbol via FinMind (Sponsor token required)",
+    )
+    main_force_parser.add_argument("--symbol", required=True, help="Stock symbol (e.g. 5347)")
+    main_force_parser.add_argument(
+        "--start-date", required=True, help="Inclusive start date in YYYY-MM-DD"
+    )
+    main_force_parser.add_argument(
+        "--end-date", required=True, help="Inclusive end date in YYYY-MM-DD"
+    )
+    main_force_parser.add_argument(
+        "--top-n",
+        type=int,
+        default=15,
+        help="Number of top buy/sell branches to aggregate. Default 15.",
+    )
+    main_force_parser.add_argument(
+        "--market",
+        help="Market (TWSE or TPEX). Auto-resolved from the stocks table when omitted.",
+    )
+    main_force_parser.add_argument(
+        "--database-url",
+        help="SQLAlchemy database URL. Defaults to TS_DATABASE_URL from environment.",
+    )
+
     backtest_parser = subparsers.add_parser(
         "backtest", help="Run backtest using the local price dataset"
     )
@@ -769,6 +795,89 @@ def main(argv: Optional[List[str]] = None) -> int:
             },
         )
         print(f"✅ 已同步 {trading_date.isoformat()} 三大法人買賣超，共 {persisted_rows} 筆。")
+        return 0
+
+    if args.command == "sync-main-force":
+        start_date = parse_iso_date(args.start_date)
+        end_date = parse_iso_date(args.end_date)
+        if start_date > end_date:
+            parser.error("--start-date must be on or before --end-date")
+
+        database_url = args.database_url or settings.database_url
+        if not database_url:
+            parser.error("--database-url is required or set TS_DATABASE_URL in the environment")
+
+        from sqlalchemy.orm import Session
+
+        from sentinel.main_force import (
+            FinMindError,
+            compute_main_force_daily,
+            fetch_trading_daily_report,
+        )
+        from sentinel.persistence import upsert_main_force_daily
+
+        engine = create_db_engine(database_url)
+        create_schema(engine)
+
+        market = args.market
+        if not market:
+            from sentinel.models import Stock
+
+            with Session(engine) as session:
+                for candidate in ("TWSE", "TPEX"):
+                    found = (
+                        session.query(Stock)
+                        .filter(Stock.market == candidate, Stock.symbol == args.symbol)
+                        .first()
+                    )
+                    if found:
+                        market = candidate
+                        break
+            if not market:
+                market = "TWSE"
+                print(
+                    f"⚠️ 股票主檔查無 {args.symbol}，市場以 TWSE 代入（可用 --market 指定）。",
+                    file=sys.stderr,
+                )
+
+        try:
+            report = fetch_trading_daily_report(
+                symbol=args.symbol,
+                start_date=start_date,
+                end_date=end_date,
+                settings=settings,
+            )
+        except FinMindError as exc:
+            print(str(exc), file=sys.stderr)
+            return 1
+
+        main_force = compute_main_force_daily(report, top_n=args.top_n)
+        if main_force.empty:
+            print(
+                f"無 {args.symbol} {start_date.isoformat()} ~ {end_date.isoformat()} 券商分點資料。"
+            )
+            return 0
+
+        with Session(engine) as session:
+            persisted_rows = upsert_main_force_daily(
+                session, market=market, symbol=args.symbol, frame=main_force, top_n=args.top_n
+            )
+            session.commit()
+
+        logger.info(
+            "main_force_synced",
+            extra={
+                "symbol": args.symbol,
+                "market": market,
+                "start_date": start_date.isoformat(),
+                "end_date": end_date.isoformat(),
+                "top_n": args.top_n,
+                "rows": persisted_rows,
+            },
+        )
+        print(
+            f"✅ 已同步 {market}:{args.symbol} 主力買賣超（Top {args.top_n}），共 {persisted_rows} 日。"
+        )
         return 0
 
     if args.command == "import-minute-bars":

@@ -44,6 +44,8 @@ class Settings(BaseSettings):
     )
     tg_token: Optional[str] = Field(default=None)
     tg_chat_id: Optional[str] = Field(default=None)
+    finmind_token: Optional[str] = Field(default=None)
+    finmind_api_url: str = Field(default="https://api.finmindtrade.com/api/v4/data")
     indicator_cache_dir: Optional[Path] = Field(default=None)
     indicator_calc_version: str = Field(default="v1")
 

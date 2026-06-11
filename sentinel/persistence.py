@@ -19,6 +19,7 @@ from sentinel.models import (
     DataQuarantine,
     InstitutionalFlow,
     JobRun,
+    MainForceDaily,
     ScanResult,
     Stock,
     Strategy,
@@ -281,6 +282,36 @@ def upsert_institutional_flows(session: Session, flows: pd.DataFrame) -> int:
     return len(rows)
 
 
+def upsert_main_force_daily(
+    session: Session, market: str, symbol: str, frame: pd.DataFrame, top_n: int = 15
+) -> int:
+    """寫入主力買賣超（券商分點 Top-N），主鍵衝突時更新數值欄位。"""
+    if frame.empty:
+        return 0
+
+    net_columns = ["main_buy", "main_sell", "main_net"]
+    upsert_frame = frame[["trading_date"] + net_columns].copy()
+    upsert_frame["trading_date"] = pd.to_datetime(upsert_frame["trading_date"]).dt.date
+    for column in net_columns:
+        values = pd.to_numeric(upsert_frame[column])
+        # 用 list comprehension 而非 astype("Int64")：driver 需要原生 int/None，pd.NA 無法綁定
+        upsert_frame[column] = [int(v) if pd.notna(v) else None for v in values]
+    upsert_frame["market"] = market
+    upsert_frame["symbol"] = symbol
+    upsert_frame["top_n"] = int(top_n)
+    upsert_frame["updated_at"] = datetime.utcnow()
+    rows = upsert_frame.to_dict(orient="records")
+
+    _upsert_rows(
+        session=session,
+        table=MainForceDaily.__table__,
+        rows=rows,
+        conflict_columns=["market", "symbol", "trading_date"],
+        update_columns=net_columns + ["top_n", "updated_at"],
+    )
+    return len(rows)
+
+
 def upsert_technical_indicators(
     session: Session, indicators: pd.DataFrame, prices: pd.DataFrame
 ) -> int:
@@ -488,6 +519,7 @@ def table_to_model(table_name: str):
         "daily_prices_3d": DailyPrice3D,
         "daily_prices_47d": DailyPrice47D,
         "institutional_flows": InstitutionalFlow,
+        "main_force_daily": MainForceDaily,
         "technical_indicators": TechnicalIndicator,
         "scan_results": ScanResult,
         "job_runs": JobRun,
