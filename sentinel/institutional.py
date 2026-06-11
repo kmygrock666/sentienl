@@ -158,19 +158,25 @@ class InstitutionalFlowProvider(ABC):
     ) -> pd.DataFrame:
         raw_frame = pd.DataFrame(rows, columns=header)
         symbol_column = _find_column(raw_frame, [symbol_keyword])
+        net_columns = {
+            "foreign_net": _find_foreign_net_column(raw_frame),
+            "investment_trust_net": _find_first_matching_column(raw_frame, ["投信", "買賣超"]),
+            "dealer_net": _find_dealer_net_column(raw_frame),
+            "total_net": _find_first_matching_column(raw_frame, ["三大法人買賣超"]),
+        }
+        for field, column in net_columns.items():
+            if column is None:
+                # 交易所改欄名時整欄會變 None，提早留下線索方便除錯
+                logger.warning(
+                    "institutional_column_not_found",
+                    extra={"field": field, "market": self.market, "header": header},
+                )
         frame = pd.DataFrame(
             {
                 "market": self.market,
                 "symbol": raw_frame[symbol_column].str.strip(),
                 "trading_date": trading_date,
-                "foreign_net": _net_series(raw_frame, _find_foreign_net_column(raw_frame)),
-                "investment_trust_net": _net_series(
-                    raw_frame, _find_first_matching_column(raw_frame, ["投信", "買賣超"])
-                ),
-                "dealer_net": _net_series(raw_frame, _find_dealer_net_column(raw_frame)),
-                "total_net": _net_series(
-                    raw_frame, _find_first_matching_column(raw_frame, ["三大法人買賣超"])
-                ),
+                **{field: _net_series(raw_frame, column) for field, column in net_columns.items()},
             }
         )
         frame = frame.dropna(subset=_NET_COLUMNS, how="all")
