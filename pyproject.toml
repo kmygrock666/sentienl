@@ -8,7 +8,7 @@ version = "0.1.0"
 description = "跨市場策略選股系統：台股日線資料抓取、技術指標計算、規則式策略掃描與回測"
 requires-python = ">=3.9"
 dependencies = [
-    "pandas>=2.0",
+    "pandas>=2.1",  # Styler.map 需 2.1+（ui/pages/11_Institutional.py）
     "requests>=2.31",
     "pydantic-settings>=2.0",
     "psycopg2-binary>=2.9",

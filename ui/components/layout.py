@@ -6,6 +6,8 @@
 
 from __future__ import annotations
 
+import html
+
 import streamlit as st
 
 _TERMINAL_CSS = """
@@ -22,7 +24,7 @@ _TERMINAL_CSS = """
   --line-hi: #33414C;
   --text-0:  #E8ECEF;
   --text-1:  #8E9BA8;
-  --text-2:  #5C6B78;
+  --text-2:  #71808E;
   --up:      #E5484D;            /* 台股慣例：漲紅 */
   --up-dim:  rgba(229,72,77,0.12);
   --down:    #2FA46C;            /* 跌綠 */
@@ -112,9 +114,6 @@ h1, h2 {
 h1 {
   border-bottom: 1px solid var(--line);
   padding-bottom: 0.35em;
-  background: linear-gradient(90deg, var(--text-0) 65%, var(--text-1));
-  -webkit-background-clip: text;
-  background-clip: text;
 }
 h3, h4 {
   color: var(--text-0) !important;
@@ -392,6 +391,7 @@ hr {
 </style>
 """
 
+# 僅為向後相容保留（外部若有引用），實際樣式由 .tk-badge CSS 決定
 _STATUS_BADGE = {
     "running": ("🟡", "#E0A94A"),
     "success": ("🟢", "#2FA46C"),
@@ -410,9 +410,10 @@ def inject_css() -> None:
 
 
 def status_badge_html(status: str) -> str:
-    """狀態膠囊（running 會有脈動圓點）。"""
+    """狀態膠囊（running 會有脈動圓點）。內容一律 escape，呼叫端可安心拼進 HTML。"""
     key = status.lower() if status.lower() in _BADGE_CLASSES else "unknown"
-    return f'<span class="tk-badge {key}"><span class="dot"></span>{status.upper()}</span>'
+    label = html.escape(status.upper())
+    return f'<span class="tk-badge {key}"><span class="dot"></span>{label}</span>'
 
 
 def pnl_chip_html(value: float | None, suffix: str = "") -> str:
@@ -421,15 +422,16 @@ def pnl_chip_html(value: float | None, suffix: str = "") -> str:
         return '<span class="tk-chip flat">—</span>'
     cls = "up" if value > 0 else ("down" if value < 0 else "flat")
     sign = "+" if value > 0 else ""
-    return f'<span class="tk-chip {cls}">{sign}{value:,.2f}{suffix}</span>'
+    return f'<span class="tk-chip {cls}">{sign}{value:,.2f}{html.escape(suffix)}</span>'
 
 
 def section_header(title: str, subtitle: str = "") -> None:
     """渲染終端提示符式區塊標題（含次標題）。"""
     st.markdown(
         f'<div class="tk-section"><span class="tick">▮</span>'
-        f'<span class="title">{title}</span><span class="rule"></span></div>',
+        f'<span class="title" role="heading" aria-level="3">{html.escape(title)}</span>'
+        f'<span class="rule"></span></div>',
         unsafe_allow_html=True,
     )
     if subtitle:
-        st.markdown(f'<p class="tk-subtitle">{subtitle}</p>', unsafe_allow_html=True)
+        st.markdown(f'<p class="tk-subtitle">{html.escape(subtitle)}</p>', unsafe_allow_html=True)
