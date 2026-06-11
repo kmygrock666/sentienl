@@ -362,8 +362,6 @@ INSTITUTIONAL_ENRICH_COLUMNS = [
     "foreign_buy_streak",
 ]
 
-_DERIVED_COLUMNS = ["foreign_net_5d", "foreign_buy_streak"]
-
 
 def load_institutional_frame(session: Session, start_date: date, end_date: date) -> pd.DataFrame:
     """讀取日期區間內的法人買賣超。
@@ -420,6 +418,7 @@ def enrich_with_institutional(frame: pd.DataFrame, flows: pd.DataFrame) -> pd.Da
 
     # 衍生值在 merge 後的 frame 上計算：價格序列裡的缺資料日（NaN）才能視為中斷。
     merged = merged.sort_values(["market", "symbol", date_key], kind="stable")
+    # streak 是對 Series 做 groupby，必須用 Series 當 key（字串 key 只適用於 DataFrame）
     group_keys = [merged["market"], merged["symbol"]]
     merged["foreign_net_5d"] = (
         merged.groupby(["market", "symbol"], sort=False)["foreign_net"]

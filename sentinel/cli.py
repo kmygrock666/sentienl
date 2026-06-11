@@ -38,6 +38,8 @@ from sentinel.storage import load_price_dataset, save_price_dataset, upsert_pric
 from sentinel.strategies import load_strategy_definitions
 from sentinel.utils import parse_iso_date
 
+_logger = get_logger(__name__)
+
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Taiwan stock strategy scanner")
@@ -571,6 +573,25 @@ def build_parser() -> argparse.ArgumentParser:
     )
 
     return parser
+
+
+def _apply_institutional_enrichment(frame: pd.DataFrame, engine) -> pd.DataFrame:
+    """以資料庫中的法人買賣超 enrich 指標 frame；失敗時記 warning 並回傳原 frame。"""
+    try:
+        from sqlalchemy.orm import Session as _SASession
+
+        from sentinel.institutional import enrich_with_institutional, load_institutional_frame
+
+        _date_col: pd.Series = frame["trading_date"]  # type: ignore[assignment]
+        _dates = pd.DatetimeIndex(pd.to_datetime(_date_col)).date  # ndarray[date]
+        with _SASession(engine) as session:
+            flows = load_institutional_frame(session, start_date=min(_dates), end_date=max(_dates))
+        enriched = enrich_with_institutional(frame, flows)
+        _logger.info("institutional_enriched", extra={"flow_rows": len(flows.index)})
+        return enriched
+    except Exception as exc:  # noqa: BLE001 - enrichment 失敗不應中斷主流程
+        _logger.warning("institutional_enrich_failed", extra={"error": str(exc)})
+        return frame
 
 
 def main(argv: Optional[List[str]] = None) -> int:
@@ -1544,29 +1565,9 @@ def main(argv: Optional[List[str]] = None) -> int:
         # 法人買賣超 enrichment（有設定資料庫才會生效；失敗不阻斷檢驗）
         check_database_url = args.database_url or settings.database_url
         if check_database_url and not enriched.empty:
-            try:
-                from sqlalchemy.orm import Session as _SASession
-
-                from sentinel.institutional import (
-                    enrich_with_institutional,
-                    load_institutional_frame,
-                )
-
-                check_engine = create_db_engine(check_database_url)
-                _trading_dates = pd.to_datetime(enriched["trading_date"]).dt.date
-                with _SASession(check_engine) as _inst_session:
-                    _flows = load_institutional_frame(
-                        _inst_session,
-                        start_date=_trading_dates.min(),
-                        end_date=_trading_dates.max(),
-                    )
-                enriched = enrich_with_institutional(enriched, _flows)
-                logger.info(
-                    "institutional_enriched",
-                    extra={"flow_rows": int(len(_flows.index))},
-                )
-            except Exception as exc:  # noqa: BLE001 - enrichment 失敗不應中斷檢驗
-                logger.warning("institutional_enrich_failed", extra={"error": str(exc)})
+            enriched = _apply_institutional_enrichment(
+                enriched, create_db_engine(check_database_url)
+            )
 
         stock_name = args.symbol
         if not stock_master.empty:
@@ -1932,28 +1933,7 @@ def main(argv: Optional[List[str]] = None) -> int:
 
         # 法人買賣超 enrichment（資料庫有資料才會生效；失敗不阻斷掃描）
         if engine is not None and not enriched_prices.empty:
-            try:
-                from sqlalchemy.orm import Session as _SASession
-
-                from sentinel.institutional import (
-                    enrich_with_institutional,
-                    load_institutional_frame,
-                )
-
-                _trading_dates = pd.to_datetime(enriched_prices["trading_date"]).dt.date
-                with _SASession(engine) as _inst_session:
-                    _flows = load_institutional_frame(
-                        _inst_session,
-                        start_date=_trading_dates.min(),
-                        end_date=_trading_dates.max(),
-                    )
-                enriched_prices = enrich_with_institutional(enriched_prices, _flows)
-                logger.info(
-                    "institutional_enriched",
-                    extra={"flow_rows": int(len(_flows.index))},
-                )
-            except Exception as exc:  # noqa: BLE001 - enrichment 失敗不應中斷掃描
-                logger.warning("institutional_enrich_failed", extra={"error": str(exc)})
+            enriched_prices = _apply_institutional_enrichment(enriched_prices, engine)
 
         if args.skip_strategies:
             logger.info("skipping_strategies_as_requested")

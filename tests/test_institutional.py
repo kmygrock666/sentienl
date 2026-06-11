@@ -190,7 +190,8 @@ def _flow_row(
         "foreign_net": foreign_net,
         "investment_trust_net": 1_000,
         "dealer_net": -500,
-        "total_net": (foreign_net or 0) + 500,
+        # total = foreign + trust(1000) + dealer(-500)
+        "total_net": (foreign_net or 0) + 1_000 - 500,
     }
 
 
