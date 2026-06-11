@@ -97,6 +97,7 @@ def test_fetch_csv_with_retry_recovers_after_failures(monkeypatch) -> None:
         trading_date=date(2025, 3, 5),
         parse_fn=lambda payload, td: pd.DataFrame({"x": [1]}),
         success_event="fetched_market_day",
+        error_label="daily prices",
     )
     assert calls["n"] == 3
     assert len(frame) == 1

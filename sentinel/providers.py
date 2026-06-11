@@ -38,11 +38,13 @@ def fetch_csv_with_retry(
     trading_date: date,
     parse_fn: Callable[[str, date], pd.DataFrame],
     success_event: str,
-    error_label: str = "daily prices",
+    error_label: str,
 ) -> pd.DataFrame:
     """Shared fetch/parse loop with rate limiting, retries, and backoff + jitter.
 
-    Raises RuntimeError("Failed to fetch {market} {error_label} for {date}: ...")
+    ``success_event`` is the structured-log event name emitted on success
+    (e.g. "fetched_market_day"); ``error_label`` names the data kind in the final
+    RuntimeError("Failed to fetch {market} {error_label} for {date}: ...") raised
     after exhausting ``settings.max_retries`` attempts.
     """
     last_error: Optional[Exception] = None
