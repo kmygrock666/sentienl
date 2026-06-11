@@ -7,7 +7,7 @@ import time
 from abc import ABC, abstractmethod
 from datetime import date
 from pathlib import Path
-from typing import Optional
+from typing import Callable, Optional
 
 import pandas as pd
 import requests
@@ -20,6 +20,78 @@ logger = get_logger(__name__)
 SOURCE_MODE_AUTO = "auto"
 SOURCE_MODE_FIXTURE = "fixture"
 SOURCE_MODE_NETWORK = "network"
+
+
+def _rate_limit(settings: Settings) -> None:
+    if settings.max_delay_seconds <= 0:
+        return
+    time.sleep(random.uniform(settings.min_delay_seconds, settings.max_delay_seconds))
+
+
+def fetch_csv_with_retry(
+    *,
+    endpoint: str,
+    params: dict[str, str],
+    headers: dict[str, str],
+    settings: Settings,
+    market: str,
+    trading_date: date,
+    parse_fn: Callable[[str, date], pd.DataFrame],
+    success_event: str,
+    error_label: str = "daily prices",
+) -> pd.DataFrame:
+    """Shared fetch/parse loop with rate limiting, retries, and backoff + jitter.
+
+    Raises RuntimeError("Failed to fetch {market} {error_label} for {date}: ...")
+    after exhausting ``settings.max_retries`` attempts.
+    """
+    last_error: Optional[Exception] = None
+
+    for attempt in range(1, settings.max_retries + 1):
+        try:
+            _rate_limit(settings)
+            payload = fetch_text(
+                endpoint,
+                params=params,
+                headers=headers,
+                timeout_seconds=settings.timeout_seconds,
+            )
+            frame = parse_fn(payload, trading_date)
+            logger.info(
+                success_event,
+                extra={
+                    "market": market,
+                    "trading_date": trading_date.isoformat(),
+                    "rows": int(len(frame.index)),
+                },
+            )
+            return frame
+        except (
+            requests.RequestException,
+            ValueError,
+            RuntimeError,
+            subprocess.CalledProcessError,
+        ) as exc:
+            last_error = exc
+            logger.warning(
+                "fetch_retry",
+                extra={
+                    "market": market,
+                    "trading_date": trading_date.isoformat(),
+                    "attempt": attempt,
+                    "error": str(exc),
+                },
+            )
+            if attempt == settings.max_retries:
+                break
+            sleep_seconds = settings.retry_backoff_seconds * (2 ** (attempt - 1)) + random.uniform(
+                0, settings.retry_jitter_seconds
+            )
+            time.sleep(sleep_seconds)
+
+    raise RuntimeError(
+        f"Failed to fetch {market} {error_label} for {trading_date.isoformat()}: {last_error}"
+    ) from last_error
 
 
 class DailyPriceProvider(ABC):
@@ -74,58 +146,17 @@ class TwseDailyPriceProvider(DailyPriceProvider):
             "type": "ALLBUT0999",
         }
         headers = {"User-Agent": settings.user_agent}
-        last_error: Optional[Exception] = None
-
-        for attempt in range(1, settings.max_retries + 1):
-            try:
-                self._rate_limit(settings)
-                payload = fetch_text(
-                    self.endpoint,
-                    params=params,
-                    headers=headers,
-                    timeout_seconds=settings.timeout_seconds,
-                )
-                frame = self._parse_csv(payload, trading_date)
-                logger.info(
-                    "fetched_market_day",
-                    extra={
-                        "market": self.market,
-                        "trading_date": trading_date.isoformat(),
-                        "rows": int(len(frame.index)),
-                    },
-                )
-                return frame
-            except (
-                requests.RequestException,
-                ValueError,
-                RuntimeError,
-                subprocess.CalledProcessError,
-            ) as exc:
-                last_error = exc
-                logger.warning(
-                    "fetch_retry",
-                    extra={
-                        "market": self.market,
-                        "trading_date": trading_date.isoformat(),
-                        "attempt": attempt,
-                        "error": str(exc),
-                    },
-                )
-                if attempt == settings.max_retries:
-                    break
-                sleep_seconds = settings.retry_backoff_seconds * (
-                    2 ** (attempt - 1)
-                ) + random.uniform(0, settings.retry_jitter_seconds)
-                time.sleep(sleep_seconds)
-
-        raise RuntimeError(
-            f"Failed to fetch {self.market} daily prices for {trading_date.isoformat()}: {last_error}"
-        ) from last_error
-
-    def _rate_limit(self, settings: Settings) -> None:
-        if settings.max_delay_seconds <= 0:
-            return
-        time.sleep(random.uniform(settings.min_delay_seconds, settings.max_delay_seconds))
+        return fetch_csv_with_retry(
+            endpoint=self.endpoint,
+            params=params,
+            headers=headers,
+            settings=settings,
+            market=self.market,
+            trading_date=trading_date,
+            parse_fn=self._parse_csv,
+            success_event="fetched_market_day",
+            error_label="daily prices",
+        )
 
     def _parse_csv(self, payload: str, trading_date: date) -> pd.DataFrame:
         lines = [line.strip() for line in payload.splitlines() if line.strip()]
@@ -249,58 +280,17 @@ class TpexDailyPriceProvider(DailyPriceProvider):
             "s": "0,asc,0",
         }
         headers = {"User-Agent": settings.user_agent}
-        last_error: Optional[Exception] = None
-
-        for attempt in range(1, settings.max_retries + 1):
-            try:
-                self._rate_limit(settings)
-                payload = fetch_text(
-                    self.endpoint,
-                    params=params,
-                    headers=headers,
-                    timeout_seconds=settings.timeout_seconds,
-                )
-                frame = self._parse_csv(payload, trading_date)
-                logger.info(
-                    "fetched_market_day",
-                    extra={
-                        "market": self.market,
-                        "trading_date": trading_date.isoformat(),
-                        "rows": int(len(frame.index)),
-                    },
-                )
-                return frame
-            except (
-                requests.RequestException,
-                ValueError,
-                RuntimeError,
-                subprocess.CalledProcessError,
-            ) as exc:
-                last_error = exc
-                logger.warning(
-                    "fetch_retry",
-                    extra={
-                        "market": self.market,
-                        "trading_date": trading_date.isoformat(),
-                        "attempt": attempt,
-                        "error": str(exc),
-                    },
-                )
-                if attempt == settings.max_retries:
-                    break
-                sleep_seconds = settings.retry_backoff_seconds * (
-                    2 ** (attempt - 1)
-                ) + random.uniform(0, settings.retry_jitter_seconds)
-                time.sleep(sleep_seconds)
-
-        raise RuntimeError(
-            f"Failed to fetch {self.market} daily prices for {trading_date.isoformat()}: {last_error}"
-        ) from last_error
-
-    def _rate_limit(self, settings: Settings) -> None:
-        if settings.max_delay_seconds <= 0:
-            return
-        time.sleep(random.uniform(settings.min_delay_seconds, settings.max_delay_seconds))
+        return fetch_csv_with_retry(
+            endpoint=self.endpoint,
+            params=params,
+            headers=headers,
+            settings=settings,
+            market=self.market,
+            trading_date=trading_date,
+            parse_fn=self._parse_csv,
+            success_event="fetched_market_day",
+            error_label="daily prices",
+        )
 
     def _parse_csv(self, payload: str, trading_date: date) -> pd.DataFrame:
         lines = [line.strip() for line in payload.splitlines() if line.strip()]

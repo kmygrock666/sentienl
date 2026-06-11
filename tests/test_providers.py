@@ -2,6 +2,9 @@ from __future__ import annotations
 
 from datetime import date
 
+import pandas as pd
+import pytest
+
 from sentinel.providers import TpexDailyPriceProvider, TwseDailyPriceProvider
 
 _TWSE_PAYLOAD = """
@@ -57,3 +60,83 @@ def test_tpex_parser_rejects_mismatched_date() -> None:
     frame = provider._parse_csv(_TPEX_PAYLOAD, trading_date=date(2026, 3, 5))
 
     assert frame.empty
+
+
+def test_fetch_csv_with_retry_recovers_after_failures(monkeypatch) -> None:
+    """前兩次網路錯誤後第三次成功，應回傳解析結果並重試對應次數。"""
+    import requests as _requests
+
+    from sentinel import providers as providers_module
+    from sentinel.config import Settings
+
+    calls = {"n": 0}
+
+    def fake_fetch_text(url, *, params=None, headers=None, timeout_seconds=0):
+        calls["n"] += 1
+        if calls["n"] < 3:
+            raise _requests.RequestException("boom")
+        return "payload"
+
+    monkeypatch.setattr(providers_module, "fetch_text", fake_fetch_text)
+    monkeypatch.setattr(providers_module.time, "sleep", lambda _s: None)
+
+    settings = Settings(
+        _env_file=None,
+        max_retries=3,
+        retry_backoff_seconds=0,
+        retry_jitter_seconds=0,
+        min_delay_seconds=0,
+        max_delay_seconds=0,
+    )
+    frame = providers_module.fetch_csv_with_retry(
+        endpoint="https://example.test/csv",
+        params={},
+        headers={},
+        settings=settings,
+        market="TWSE",
+        trading_date=date(2025, 3, 5),
+        parse_fn=lambda payload, td: pd.DataFrame({"x": [1]}),
+        success_event="fetched_market_day",
+    )
+    assert calls["n"] == 3
+    assert len(frame) == 1
+
+
+def test_fetch_csv_with_retry_raises_after_exhaustion(monkeypatch) -> None:
+    """所有嘗試皆失敗時應拋出 RuntimeError 並重試 max_retries 次。"""
+    import requests as _requests
+
+    from sentinel import providers as providers_module
+    from sentinel.config import Settings
+
+    calls = {"n": 0}
+
+    def fake_fetch_text(url, *, params=None, headers=None, timeout_seconds=0):
+        calls["n"] += 1
+        raise _requests.RequestException("boom")
+
+    monkeypatch.setattr(providers_module, "fetch_text", fake_fetch_text)
+    monkeypatch.setattr(providers_module.time, "sleep", lambda _s: None)
+
+    settings = Settings(
+        _env_file=None,
+        max_retries=3,
+        retry_backoff_seconds=0,
+        retry_jitter_seconds=0,
+        min_delay_seconds=0,
+        max_delay_seconds=0,
+    )
+    with pytest.raises(RuntimeError) as exc_info:
+        providers_module.fetch_csv_with_retry(
+            endpoint="https://example.test/csv",
+            params={},
+            headers={},
+            settings=settings,
+            market="TWSE",
+            trading_date=date(2025, 3, 5),
+            parse_fn=lambda payload, td: pd.DataFrame({"x": [1]}),
+            success_event="fetched_market_day",
+            error_label="daily prices",
+        )
+    assert calls["n"] == 3
+    assert "Failed to fetch TWSE daily prices for 2025-03-05" in str(exc_info.value)

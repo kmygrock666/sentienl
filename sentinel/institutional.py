@@ -8,19 +8,14 @@ tolerant column matching against the official CSV payloads.
 from __future__ import annotations
 
 import csv
-import random
-import subprocess
-import time
 from abc import ABC, abstractmethod
 from collections.abc import Sequence
 from datetime import date
 from pathlib import Path
 
 import pandas as pd
-import requests
 
 from sentinel.config import Settings
-from sentinel.http_client import fetch_text
 from sentinel.logging_utils import get_logger
 from sentinel.providers import (
     SOURCE_MODE_AUTO,
@@ -29,6 +24,7 @@ from sentinel.providers import (
     _find_column,
     _normalize_symbol_token,
     _to_minguo_date,
+    fetch_csv_with_retry,
     normalize_market_name,
 )
 
@@ -84,54 +80,17 @@ class InstitutionalFlowProvider(ABC):
 
         params = self._network_params(trading_date)
         headers = {"User-Agent": settings.user_agent}
-        last_error: Exception | None = None
-
-        for attempt in range(1, settings.max_retries + 1):
-            try:
-                self._rate_limit(settings)
-                payload = fetch_text(
-                    self.endpoint,
-                    params=params,
-                    headers=headers,
-                    timeout_seconds=settings.timeout_seconds,
-                )
-                frame = self._parse_csv(payload, trading_date)
-                logger.info(
-                    "fetched_institutional_day",
-                    extra={
-                        "market": self.market,
-                        "trading_date": trading_date.isoformat(),
-                        "rows": int(len(frame.index)),
-                    },
-                )
-                return frame
-            except (
-                requests.RequestException,
-                ValueError,
-                RuntimeError,
-                subprocess.CalledProcessError,
-            ) as exc:
-                last_error = exc
-                logger.warning(
-                    "fetch_retry",
-                    extra={
-                        "market": self.market,
-                        "trading_date": trading_date.isoformat(),
-                        "attempt": attempt,
-                        "error": str(exc),
-                    },
-                )
-                if attempt == settings.max_retries:
-                    break
-                sleep_seconds = settings.retry_backoff_seconds * (
-                    2 ** (attempt - 1)
-                ) + random.uniform(0, settings.retry_jitter_seconds)
-                time.sleep(sleep_seconds)
-
-        raise RuntimeError(
-            f"Failed to fetch {self.market} institutional flows for "
-            f"{trading_date.isoformat()}: {last_error}"
-        ) from last_error
+        return fetch_csv_with_retry(
+            endpoint=self.endpoint,
+            params=params,
+            headers=headers,
+            settings=settings,
+            market=self.market,
+            trading_date=trading_date,
+            parse_fn=self._parse_csv,
+            success_event="fetched_institutional_day",
+            error_label="institutional flows",
+        )
 
     @abstractmethod
     def _network_params(self, trading_date: date) -> dict[str, str]:
@@ -140,11 +99,6 @@ class InstitutionalFlowProvider(ABC):
     @abstractmethod
     def _parse_csv(self, payload: str, trading_date: date) -> pd.DataFrame:
         raise NotImplementedError
-
-    def _rate_limit(self, settings: Settings) -> None:
-        if settings.max_delay_seconds <= 0:
-            return
-        time.sleep(random.uniform(settings.min_delay_seconds, settings.max_delay_seconds))
 
     @staticmethod
     def _output_columns() -> list[str]:
