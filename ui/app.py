@@ -25,6 +25,29 @@ from ui.services.queries import (
     get_latest_scan_summary,
 )
 
+
+@st.cache_data(ttl=300, show_spinner=False)
+def _cached_latest_price_date():
+    try:
+        return get_latest_price_date(get_engine())
+    except Exception:
+        return None
+
+
+@st.cache_data(ttl=60, show_spinner=False)
+def _cached_scan_summary() -> dict:
+    return get_latest_scan_summary(get_engine())
+
+
+@st.cache_data(ttl=120, show_spinner=False)
+def _cached_data_freshness():
+    return get_data_freshness(get_engine())
+
+
+@st.cache_data(ttl=30, show_spinner=False)
+def _cached_job_runs(limit: int = 10):
+    return get_latest_job_runs(get_engine(), limit=limit)
+
 st.set_page_config(
     page_title="Sentinel 選股系統",
     page_icon="📡",
@@ -41,9 +64,7 @@ store = get_store()
 # ── 最新收盤日（供快速 Run 使用）────────────────────────────────────────────
 _latest_price_date: Optional[date] = None
 try:
-    from ui.services.db import get_engine as _get_engine_tmp
-
-    _latest_price_date = get_latest_price_date(_get_engine_tmp())
+    _latest_price_date = _cached_latest_price_date()
 except Exception:
     pass
 
@@ -62,9 +83,9 @@ _running_banner()
 
 # ── 快速操作 ────────────────────────────────────────────────────────────────
 section_header("快速操作", "一鍵啟動常用任務（長任務在 Task Center 追蹤）")
-qa1, qa2, qa3, qa4 = st.columns(4)
+qa1, qa2, qa3, qa4, qa5 = st.columns(5)
 
-if qa1.button("▶ Sync（TWSE + TPEX）", use_container_width=True):
+if qa1.button("▶ Sync（TWSE + TPEX）", width='stretch'):
     _running_sync = find_running_task(SYNC.command_id)
     if _running_sync:
         st.warning(
@@ -75,7 +96,7 @@ if qa1.button("▶ Sync（TWSE + TPEX）", use_container_width=True):
         st.session_state["_last_sync_task"] = task.task_id
         st.rerun()
 
-if qa2.button("▶ Run（最新收盤日）", use_container_width=True):
+if qa2.button("▶ Run（最新收盤日）", width='stretch'):
     _running_run = find_running_task(RUN.command_id)
     if _running_run:
         st.warning(
@@ -94,7 +115,7 @@ if qa2.button("▶ Run（最新收盤日）", use_container_width=True):
         st.session_state["_last_run_task"] = task.task_id
         st.rerun()
 
-if qa3.button("▶ Run Intraday", use_container_width=True):
+if qa3.button("▶ Run Intraday", width='stretch'):
     _running_intraday = find_running_task(RUN_INTRADAY.command_id)
     if _running_intraday:
         st.warning(
@@ -105,9 +126,12 @@ if qa3.button("▶ Run Intraday", use_container_width=True):
         st.session_state["_last_intraday_task"] = task.task_id
         st.rerun()
 
-if qa4.button("🔄 清除快取並刷新", use_container_width=True):
+if qa4.button("🔄 清除快取並刷新", width='stretch'):
     st.cache_resource.clear()
     st.rerun()
+
+if qa5.button("📥 每日盤後", width='stretch'):
+    st.switch_page("pages/12_Daily_Fetch.py")
 
 # ── 快速操作後 CTA ──────────────────────────────────────────────────────────
 if st.session_state.get("_last_sync_task"):
@@ -144,7 +168,7 @@ with _status_col:
 with _action_col:
     st.write("")
     if _db_status == "stopped":
-        if st.button("▶ 啟動 DB", use_container_width=True, type="primary"):
+        if st.button("▶ 啟動 DB", width='stretch', type="primary"):
             with st.spinner("正在啟動 DB 容器..."):
                 _ok, _msg = start_db_container()
             if _ok:
@@ -155,7 +179,7 @@ with _action_col:
             else:
                 st.error(f"啟動失敗：{_msg}")
     elif _db_status == "running":
-        if st.button("🔄 重新檢查", use_container_width=True):
+        if st.button("🔄 重新檢查", width='stretch'):
             st.cache_data.clear()
             st.cache_resource.clear()
             st.rerun()
@@ -177,8 +201,8 @@ except Exception as e:
 
 # ── 資料新鮮度 KPI ──────────────────────────────────────────────────────────
 section_header("資料新鮮度")
-scan_summary = get_latest_scan_summary(engine)
-freshness_df = get_data_freshness(engine)
+scan_summary = _cached_scan_summary()
+freshness_df = _cached_data_freshness()
 
 m1, m2, m3, m4 = st.columns(4)
 m1.metric("最新掃描日期", str(scan_summary["latest_date"]) if scan_summary["latest_date"] else "—")
@@ -236,7 +260,7 @@ st.divider()
 
 # ── DB JobRun ───────────────────────────────────────────────────────────────
 section_header("DB Job 記錄（sentinel 內建 pipeline）")
-job_df = get_latest_job_runs(engine, limit=10)
+job_df = _cached_job_runs(limit=10)
 if not job_df.empty:
     from ui.components.tables import render_job_runs
 
