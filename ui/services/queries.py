@@ -6,9 +6,24 @@ from pathlib import Path as _Path
 from typing import Optional
 
 import pandas as pd
+import streamlit as st
 from sqlalchemy import func
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session
+
+from sentinel.config import Settings
+from sentinel.models import (
+    DailyPrice,
+    DataQuarantine,
+    InstitutionalFlow,
+    IntradayTrade,
+    JobRun,
+    MainForceDaily,
+    ScanResult,
+    Stock,
+    TechnicalIndicator,
+)
+from sentinel.storage import load_price_dataset
 
 
 def _strategy_direction_map() -> dict[str, str]:
@@ -28,19 +43,11 @@ def _strategy_direction_map() -> dict[str, str]:
 
 _DIR_MAP: dict[str, str] = _strategy_direction_map()
 
-from sentinel.config import Settings
-from sentinel.models import (
-    DailyPrice,
-    DataQuarantine,
-    InstitutionalFlow,
-    IntradayTrade,
-    JobRun,
-    MainForceDaily,
-    ScanResult,
-    Stock,
-    TechnicalIndicator,
-)
-from sentinel.storage import load_price_dataset
+
+@st.cache_resource
+def _cached_price_dataset() -> pd.DataFrame:
+    """Load full price CSV once and hold in memory across all page navigations."""
+    return load_price_dataset(Settings().price_dataset_path)
 
 _PRICE_FRAME_COLUMNS = [
     "market",
@@ -65,7 +72,7 @@ def load_symbol_prices(symbol: str, days: int = 120, market: str | None = None) 
                 TPEX，會造成 (symbol, trading_date) 重複，呼叫端應傳入
                 market 以避免碰撞）。
     """
-    dataset = load_price_dataset(Settings().price_dataset_path)
+    dataset = _cached_price_dataset()
     if dataset.empty:
         return pd.DataFrame(columns=_PRICE_FRAME_COLUMNS)
     matched = dataset.loc[dataset["symbol"].astype(str) == symbol]
@@ -646,3 +653,31 @@ def get_latest_scan_summary(engine: Engine) -> dict:
         else pd.DataFrame()
     )
     return {"latest_date": latest_date, "total_hits": total, "by_strategy": by_strategy_df}
+
+
+def get_latest_institutional_date(engine: Engine) -> Optional[date]:
+    """查詢 InstitutionalFlow 最新 trading_date；無資料時回傳 None。"""
+    with Session(engine) as s:
+        return s.query(func.max(InstitutionalFlow.trading_date)).scalar()
+
+
+def get_latest_main_force_dates(
+    engine: Engine, symbols: list[str]
+) -> dict[str, Optional[date]]:
+    """批次查詢各個股 MainForceDaily 最新 trading_date。
+
+    回傳 {symbol: date | None}，清單中但 DB 無資料的個股映射到 None。
+    """
+    if not symbols:
+        return {}
+    with Session(engine) as s:
+        rows = (
+            s.query(MainForceDaily.symbol, func.max(MainForceDaily.trading_date))
+            .filter(MainForceDaily.symbol.in_(symbols))
+            .group_by(MainForceDaily.symbol)
+            .all()
+        )
+    result: dict[str, Optional[date]] = {sym: None for sym in symbols}
+    for sym, d in rows:
+        result[sym] = d
+    return result
