@@ -107,7 +107,9 @@ def _show_task_result(task_id: str) -> None:
         st.success(f"✅ 完成（耗時 {task.duration_str}）")
     elif task.status == "failed":
         st.error(f"❌ 失敗（耗時 {task.duration_str}）")
-    if task.stdout_tail or task.stderr_tail:
+    elif task.status == "running":
+        st.info("⚙️ 執行中…")
+    if task.status in ("success", "failed") and (task.stdout_tail or task.stderr_tail):
         render_log_tail(task.stdout_tail, task.stderr_tail)
 
 
@@ -126,7 +128,7 @@ _price_btn_label = "重新同步" if _price_synced else "▶ 同步今日股價"
 
 if _price_running:
     st.info(f"⚙️ 同步中（#{_price_running.task_id}）→ [Task Center](/9_Task_Center)")
-elif st.button(_price_btn_label, key="btn_price_sync", disabled=False, width='stretch'):
+elif st.button(_price_btn_label, key="btn_price_sync", width='stretch'):
     task = launch_task(SYNC, {"market": ["TWSE", "TPEX"]})
     st.session_state["_df_price_task"] = task.task_id
     st.rerun()
@@ -215,19 +217,16 @@ with tab_batch:
             disabled=len(selected_symbols) == 0,
             width='stretch',
         ):
-            launched = 0
             for sym in selected_symbols:
-                if find_running_task(SYNC_MAIN_FORCE.command_id) is None:
-                    launch_task(
-                        SYNC_MAIN_FORCE,
-                        {
-                            "symbol": sym,
-                            "start-date": _today.isoformat(),
-                            "end-date": _today.isoformat(),
-                        },
-                    )
-                    launched += 1
-            st.success(f"已送出 {launched} 個主力分點同步任務，請至 [Task Center](/9_Task_Center) 追蹤")
+                launch_task(
+                    SYNC_MAIN_FORCE,
+                    {
+                        "symbol": sym,
+                        "start-date": _today.isoformat(),
+                        "end-date": _today.isoformat(),
+                    },
+                )
+            st.success(f"已送出 {len(selected_symbols)} 個主力分點同步任務，請至 [Task Center](/9_Task_Center) 追蹤")
             st.rerun()
 
 # ── Tab B: 單一臨時 ───────────────────────────────────────────────────────
