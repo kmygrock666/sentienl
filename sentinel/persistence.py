@@ -6,6 +6,8 @@ from datetime import date, datetime
 from typing import Any, Dict, List, Optional, Sequence, Union
 
 import pandas as pd
+from sqlalchemy import and_
+from sqlalchemy import delete as sa_delete
 from sqlalchemy.dialects.postgresql import insert as postgresql_insert
 from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from sqlalchemy.engine import Engine
@@ -423,6 +425,20 @@ def upsert_scan_results(
                 "created_at": datetime.utcnow(),
             }
         )
+
+    # Delete stale results for the same (trading_date, strategy_id) tuples before
+    # inserting. Re-running the scan for the same date otherwise accumulates duplicate
+    # rows under different run_ids, causing inflated result counts in the UI.
+    dates = list({r["trading_date"] for r in rows})
+    strategy_ids = list({r["strategy_id"] for r in rows})
+    session.execute(
+        sa_delete(ScanResult.__table__).where(
+            and_(
+                ScanResult.__table__.c.trading_date.in_(dates),
+                ScanResult.__table__.c.strategy_id.in_(strategy_ids),
+            )
+        )
+    )
 
     _upsert_rows(
         session=session,

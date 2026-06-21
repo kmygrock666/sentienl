@@ -680,11 +680,12 @@ def _add_washout_recovery_indicators(
     group["prev_ma20"] = cp_ma20
 
     # --- Data Integrity: Stuck Data Detection ---
-    # Detect if both price and volume have remained exactly identical for 10 consecutive days.
-    # This is often a sign of crawler errors or missing historical updates where last values were repeated.
+    # Detect if close AND volume are identical to the previous row at any point in the
+    # recent 20-row window. Using rolling max (not min) catches sparse duplicates such as
+    # a 2-day repetition caused by crawler errors, which distort rolling MA calculations.
     is_same_as_prev = (close.diff() == 0) & (volume.diff() == 0)
     group["is_stuck_data"] = (
-        is_same_as_prev.rolling(window=10, min_periods=10).min().fillna(0.0).astype(float)
+        is_same_as_prev.rolling(window=20, min_periods=1).max().fillna(0.0).astype(float)
     )
 
 
