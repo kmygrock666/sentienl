@@ -5,13 +5,14 @@
 pytest>=8.0
 pytest-cov>=5.0
 
-# 程式碼格式化
-black>=24.0
-isort>=5.13
+# 程式碼格式化（鎖定版本：格式/lint 規則隨版本變動，未鎖定會使 CI 與本機不一致。
+# black 26+ 需 python>=3.10，基線仍是 3.9，升級前勿放寬）
+black==25.11.0
+isort==6.1.0
 
-# Linting / 靜態分析
-ruff>=0.4
-mypy>=1.10
+# Linting / 靜態分析（鎖定版本，理由同上）
+ruff==0.15.16
+mypy==1.19.1
 types-requests>=2.31
 
 # Pre-commit hooks
