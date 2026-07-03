@@ -2,9 +2,9 @@ name: CI
 
 on:
   push:
-    branches: [main, develop]
+    branches: [master, main, develop]
   pull_request:
-    branches: [main, develop]
+    branches: [master, main, develop]
 
 jobs:
   test:
@@ -32,6 +32,11 @@ jobs:
 
       - name: Black 格式檢查
         run: black --check sentinel tests
+
+      - name: Mypy 型別檢查
+        # TODO: 現存 31 個型別錯誤，修完後移除 continue-on-error 轉為硬性關卡
+        continue-on-error: true
+        run: mypy sentinel
 
       - name: 執行測試（含覆蓋率）
         run: |
