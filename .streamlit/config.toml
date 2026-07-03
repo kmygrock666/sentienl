@@ -8,9 +8,9 @@ font = "sans serif"
 
 [server]
 headless = true
+# 僅綁定本機；需區網存取時請改用 reverse proxy + 認證，勿直接改回 0.0.0.0
+address = "127.0.0.1"
 port = 8501
-enableCORS = false
-enableXsrfProtection = false
 
 [browser]
 gatherUsageStats = false
