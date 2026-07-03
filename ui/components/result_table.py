@@ -2,8 +2,27 @@
 
 from __future__ import annotations
 
+import json
+import pathlib
+
 import pandas as pd
 import streamlit as st
+
+_STRATEGIES_PATH = pathlib.Path(__file__).parent.parent.parent / "config" / "strategies.json"
+
+
+@st.cache_data(show_spinner=False)
+def _load_strategy_names() -> dict[str, str]:
+    """載入策略名稱對照表 strategy_id → name。"""
+    try:
+        raw = json.loads(_STRATEGIES_PATH.read_text(encoding="utf-8"))
+        result = {}
+        for direction in ("long_strategies", "short_strategies"):
+            for s in raw.get(direction, []):
+                result[s["strategy_id"]] = s.get("name", s["strategy_id"])
+        return result
+    except Exception:
+        return {}
 
 
 def render_df(
@@ -57,6 +76,24 @@ def render_scan_results(df: pd.DataFrame) -> None:
     sm2.metric("做多", int(long_cnt))
     sm3.metric("做空", int(short_cnt))
 
+    # 策略分佈
+    if "strategy_id" in df.columns:
+        strategy_names = _load_strategy_names()
+        strat_df = (
+            df.groupby("strategy_id")
+            .size()
+            .reset_index(name="命中數")
+            .sort_values("命中數", ascending=False)
+        )
+        strat_df.insert(
+            1,
+            "策略名稱",
+            strat_df["strategy_id"].map(lambda sid: strategy_names.get(sid, sid)),
+        )
+        strat_df = strat_df.rename(columns={"strategy_id": "策略 ID"})
+        with st.expander(f"📊 策略分佈（共 {len(strat_df)} 個策略命中）", expanded=True):
+            st.dataframe(strat_df, hide_index=True, width="stretch")
+
     # 顯示欄位順序（含 direction）
     preferred_cols = [
         "trading_date",
@@ -94,7 +131,7 @@ def render_scan_results(df: pd.DataFrame) -> None:
         csv,
         file_name="scan_results.csv",
         mime="text/csv",
-        use_container_width=True,
+        width='stretch',
     )
 
     # TradingView watchlist 匯出
@@ -110,5 +147,5 @@ def render_scan_results(df: pd.DataFrame) -> None:
             tv_txt.encode("utf-8"),
             file_name="tradingview.txt",
             mime="text/plain",
-            use_container_width=True,
+            width='stretch',
         )

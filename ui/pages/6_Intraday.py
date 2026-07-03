@@ -91,7 +91,7 @@ def _show_task(task_key: str) -> None:
                 # 計算結果數量（不含標題行）
                 n = len(df)
                 st.success(f"🌟 掃描完成，找到 {n} 檔符合條件")
-                st.dataframe(df, use_container_width=True, hide_index=True)
+                st.dataframe(df, width='stretch', hide_index=True)
         render_log_tail(task.stdout_tail, task.stderr_tail)
 
 
@@ -178,7 +178,7 @@ with tab_trades:
         display_cols = ["代號", "名稱", "市場", "進場日", "進場價", "備註"]
         st.dataframe(
             _open_df[display_cols].reset_index(drop=True),
-            use_container_width=True,
+            width='stretch',
             hide_index=True,
         )
 
@@ -216,12 +216,12 @@ with tab_trades:
                 }
                 for r in _pnl
             ]
-            st.dataframe(pd.DataFrame(_pnl_rows), use_container_width=True, hide_index=True)
+            st.dataframe(pd.DataFrame(_pnl_rows), width='stretch', hide_index=True)
 
     with st.expander("查看全部交易紀錄（含已結算）"):
         if not _all_df.empty:
             st.dataframe(
-                _all_df.drop(columns=["trade_id"]), use_container_width=True, hide_index=True
+                _all_df.drop(columns=["trade_id"]), width='stretch', hide_index=True
             )
         else:
             st.info("尚無任何交易紀錄")
@@ -274,7 +274,7 @@ with tab_trades:
         at_notes = st.text_input("備註")
         params_at_preview: dict = {"symbol": "（代號）", "price": "（價格）"}
         render_command_preview(ADD_INTRADAY_TRADE, params_at_preview)
-        add_submitted = st.form_submit_button("▶ 新增交易", use_container_width=True)
+        add_submitted = st.form_submit_button("▶ 新增交易", width='stretch')
 
     if add_submitted:
         if not at_sym or at_price <= 0:
@@ -300,18 +300,18 @@ with tab_trades:
     render_command_preview(CLEAR_INTRADAY_TRADES, {})
     clear_col1, clear_col2 = st.columns([3, 1])
     with clear_col2:
-        if st.button("⚠️ 清除所有交易", key="btn_clear_init", use_container_width=True):
+        if st.button("⚠️ 清除所有交易", key="btn_clear_init", width='stretch'):
             st.session_state["clear_confirm_pending"] = True
 
     if st.session_state.get("clear_confirm_pending"):
         st.warning("⚠️ 此操作不可還原！確認清除所有模擬交易記錄？")
         conf1, conf2 = st.columns(2)
-        if conf1.button("✅ 確認清除", key="btn_clear_confirm", use_container_width=True):
+        if conf1.button("✅ 確認清除", key="btn_clear_confirm", width='stretch'):
             st.session_state.pop("clear_confirm_pending", None)
             task = launch_task(CLEAR_INTRADAY_TRADES, {})
             task = poll_task(task.task_id)
             render_log_tail(task.stdout_tail, task.stderr_tail)
-        if conf2.button("❌ 取消", key="btn_clear_cancel", use_container_width=True):
+        if conf2.button("❌ 取消", key="btn_clear_cancel", width='stretch'):
             st.session_state.pop("clear_confirm_pending", None)
             st.rerun()
 

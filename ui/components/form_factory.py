@@ -34,7 +34,13 @@ def _render_field(f: FieldSpec, prefix: str, defaults: dict) -> Any:
         if f.step is not None:
             kw["step"] = f.step
         val = default if default is not None else (f.min_val or 0)
-        return st.number_input(label, value=float(val), key=key, help=f.help, **kw)
+        use_float = any(isinstance(x, float) for x in [val, f.min_val, f.max_val, f.step] if x is not None)
+        if use_float:
+            val = float(val)
+            kw = {k: float(v) for k, v in kw.items()}
+        else:
+            val = int(val)
+        return st.number_input(label, value=val, key=key, help=f.help, **kw)
 
     if f.type == "date":
         if default:

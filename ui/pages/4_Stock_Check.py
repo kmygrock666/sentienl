@@ -29,6 +29,17 @@ store = get_store()
 
 # ── 關注清單（持久化） ────────────────────────────────────────────────────────
 _WATCHLIST_PATH = pathlib.Path(__file__).parent.parent.parent / "data" / "ui_watchlist.json"
+_SIGNALS_PATH = pathlib.Path(__file__).parent.parent.parent / "config" / "signals.json"
+
+
+@st.cache_data(show_spinner=False)
+def _load_signal_descriptions() -> dict[str, str]:
+    """載入訊號說明 name → description。"""
+    try:
+        raw = json.loads(_SIGNALS_PATH.read_text(encoding="utf-8"))
+        return {s["name"]: s["description"] for s in raw.get("signals", []) if s.get("description")}
+    except Exception:
+        return {}
 
 WatchItem = dict  # {"symbol": str, "name": str}
 
@@ -96,7 +107,7 @@ if watchlist:
     cols = st.columns(min(len(watchlist), 6))
     for i, item in enumerate(watchlist):
         label = f"{item['name']} {item['symbol']}" if item.get("name") else item["symbol"]
-        if cols[i % 6].button(label, key=f"wl_{item['symbol']}", use_container_width=True):
+        if cols[i % 6].button(label, key=f"wl_{item['symbol']}", width='stretch'):
             st.session_state["sc_symbol"] = item["symbol"]
 
 # ── 表單 ────────────────────────────────────────────────────────────────────
@@ -117,7 +128,7 @@ with st.form("check_stock_form"):
     if check_date:
         preview_params["date"] = check_date.isoformat()
     render_command_preview(CHECK_STOCK, preview_params)
-    submitted = st.form_submit_button("▶ 執行 check-stock", use_container_width=True)
+    submitted = st.form_submit_button("▶ 執行 check-stock", width='stretch')
 
 if submitted:
     if not symbol or not symbol.strip():
@@ -166,14 +177,14 @@ if meta.get("symbol") or meta.get("name"):
     if cur_sym:
         in_wl = cur_sym in _wl_symbols(st.session_state["watchlist"])
         if in_wl:
-            if wl_col.button("✕ 移出清單", key="wl_remove", use_container_width=True):
+            if wl_col.button("✕ 移出清單", key="wl_remove", width='stretch'):
                 st.session_state["watchlist"] = [
                     it for it in st.session_state["watchlist"] if it["symbol"] != cur_sym
                 ]
                 _save_watchlist(st.session_state["watchlist"])
                 st.rerun()
         else:
-            if wl_col.button("＋ 加入清單", key="wl_add", use_container_width=True):
+            if wl_col.button("＋ 加入清單", key="wl_add", width='stretch'):
                 st.session_state["watchlist"].append({"symbol": cur_sym, "name": cur_name})
                 _save_watchlist(st.session_state["watchlist"])
                 st.rerun()
@@ -183,6 +194,33 @@ sm1.metric("✅ 做多觸發", parsed["triggered_count"])
 sm2.metric("🔴 警示觸發", parsed["warning_count"])
 sm3.metric("❌ 未觸發", parsed["not_triggered_count"])
 sm4.metric("⚙️ 需盤中資料", parsed["needs_intraday_count"])
+
+# ── 綜合研判 ─────────────────────────────────────────────────────────────────
+_tc = parsed["triggered_count"]
+_wc = parsed["warning_count"]
+if _tc == 0 and _wc == 0:
+    _verdict = "❌ 目前無訊號觸發，不符合進場條件"
+    _vcolor = "#9AA6B2"
+elif _wc > 0 and _tc == 0:
+    _verdict = "⚠️ 僅有警示訊號，建議出場或觀望"
+    _vcolor = "#E0A94A"
+elif _tc >= 2 and _wc == 0:
+    _verdict = "✅ 多個做多訊號確認，訊號強度佳"
+    _vcolor = "#3FA66B"
+elif _tc >= 1 and _wc >= 1:
+    _verdict = "⚡ 做多與警示並存，需謹慎評估風險"
+    _vcolor = "#E0A94A"
+else:
+    _verdict = "☑️ 單一做多訊號觸發，仍需觀察更多確認條件"
+    _vcolor = "#3D6E8F"
+
+st.markdown(
+    f'<div style="padding:0.5rem 0.8rem;border-radius:4px;background:#1a1f24;'
+    f'border-left:3px solid {_vcolor};margin:0.4rem 0">'
+    f'<span style="color:{_vcolor};font-weight:600">綜合研判：</span>'
+    f'<span style="color:var(--text-0)">{_verdict}</span></div>',
+    unsafe_allow_html=True,
+)
 
 st.divider()
 
@@ -220,6 +258,8 @@ if not visible:
     st.info("此篩選條件無符合訊號")
 
 # ── 訊號卡片 ────────────────────────────────────────────────────────────────
+signal_descs = _load_signal_descriptions()
+
 _DIR_LABEL = {"long": "做多進場", "warning": "警示 / 出場", "intraday": "需盤中資料"}
 _STATUS_CSS = {
     "triggered_long": ("border-left:3px solid #3FA66B; background:#1a2e22;", "✅", "#3FA66B"),
@@ -269,6 +309,15 @@ for idx, sig in enumerate(visible):
             + "</div>",
             unsafe_allow_html=True,
         )
+
+        # Signal description（只在觸發時顯示，幫助使用者理解其功效）
+        _desc = signal_descs.get(sig["name"], "")
+        if _desc and sig["status"] == "triggered":
+            st.markdown(
+                f'<div style="margin:0 0 0.4rem 0.8rem;color:#9AA6B2;font-size:0.80rem">'
+                f"📌 {_desc}</div>",
+                unsafe_allow_html=True,
+            )
 
         # Conditions detail (for triggered and not_triggered)
         if sig["conditions"]:
@@ -339,7 +388,7 @@ if _flow_symbol:
             else:
                 break
         st.metric("外資連續買超天數", f"{streak} 天")
-        st.dataframe(flow_df, use_container_width=True, hide_index=True)
+        st.dataframe(flow_df, width='stretch', hide_index=True)
 
 st.divider()
 
@@ -350,13 +399,13 @@ if meta.get("date"):
     qa1.page_link(
         "pages/3_Daily_Scan.py",
         label=f"📊 帶入 {meta['date']} 到 Daily Scan",
-        use_container_width=True,
+        width='stretch',
     )
 if meta.get("symbol"):
     qa2.page_link(
         "pages/7_Inspect.py",
         label=f"🔍 前往 Inspect 查看{meta['symbol']}",
-        use_container_width=True,
+        width='stretch',
     )
 
 # Copy params

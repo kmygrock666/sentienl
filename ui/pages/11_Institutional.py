@@ -36,6 +36,11 @@ def _cached_symbol_prices(symbol: str, days: int, market: str | None) -> pd.Data
     return load_symbol_prices(symbol, days, market=market)
 
 
+@st.cache_data(ttl=300, show_spinner=False)
+def _cached_institutional_dates() -> list:
+    return get_institutional_dates(get_engine())
+
+
 st.set_page_config(page_title="Institutional | Sentinel", layout="wide")
 inject_css()
 st.title("💰 法人買賣超")
@@ -58,14 +63,14 @@ except Exception as e:
     st.stop()
 
 try:
-    available_dates = get_institutional_dates(engine)
+    available_dates = _cached_institutional_dates()
 except Exception as e:
     st.error(f"讀取法人資料日期失敗：{e}")
     st.stop()
 
 if not available_dates:
     st.info("尚無法人買賣超資料，請先至 Data Sync 頁面執行 sync-institutional")
-    st.page_link("pages/2_Data_Sync.py", label="🔄 前往 Data Sync", use_container_width=False)
+    st.page_link("pages/2_Data_Sync.py", label="🔄 前往 Data Sync", width='content')
     st.stop()
 
 # ── 控制列 ──────────────────────────────────────────────────────────────────
@@ -115,7 +120,7 @@ def _render_ranking_table(net_column: str, ascending: bool) -> None:
         st.info("此條件下無資料")
         return
     styled = df.style.map(_net_color, subset=["買賣超(張)"]).format({"買賣超(張)": "{:,}"})
-    st.dataframe(styled, use_container_width=True, hide_index=True)
+    st.dataframe(styled, width='stretch', hide_index=True)
 
 
 def _render_ranking_tab(net_column: str) -> None:
@@ -315,7 +320,7 @@ def _render_kline_tab() -> None:
     fmt: dict = {c: "{:,}" for c in net_cols}
     fmt["日期"] = "{:%Y-%m-%d}"
     styled = recent10.style.map(_net_color, subset=net_cols).format(fmt, na_rep="—")
-    st.dataframe(styled, use_container_width=True, hide_index=True)
+    st.dataframe(styled, width='stretch', hide_index=True)
 
 
 # ── 頁籤 ────────────────────────────────────────────────────────────────────
@@ -355,7 +360,7 @@ with tabs[-2]:
             .map(_net_color, subset=["期間累計(張)"])
             .format({"期間累計(張)": "{:,}"})
         )
-        st.dataframe(styled_streak, use_container_width=True, hide_index=True)
+        st.dataframe(styled_streak, width='stretch', hide_index=True)
 
 # ── 底部導引 ────────────────────────────────────────────────────────────────
 st.divider()

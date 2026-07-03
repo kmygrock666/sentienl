@@ -20,6 +20,7 @@ from ui.services.command_specs import CommandSpec, build_argv
 # 任務狀態存放路徑（相對於專案根目錄）
 _TASKS_FILE = Path(__file__).parent.parent.parent / "data" / "ui_tasks.json"
 _LOG_TAIL_LINES = 100
+_LOG_TAIL_MAX_CHARS = 51_200  # 50 KB per tail — guards against single-line blowout
 _MAX_TASKS = 200
 
 
@@ -120,6 +121,12 @@ class TaskStore:
             kept = ordered[:_MAX_TASKS]
             running_overflow = [d for d in ordered[_MAX_TASKS:] if d.get("status") == "running"]
             data = {d["task_id"]: d for d in kept + running_overflow}
+        # Guard against single-line blowout stored in previous runs
+        for d in data.values():
+            for field in ("stdout_tail", "stderr_tail"):
+                v = d.get(field, "")
+                if v and len(v) > _LOG_TAIL_MAX_CHARS:
+                    d[field] = "…(truncated)\n" + v[-_LOG_TAIL_MAX_CHARS:]
         self._path.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
 
     def save(self, task: TaskRun) -> None:
@@ -158,13 +165,26 @@ def find_running_task(command_id: str) -> "Optional[TaskRun]":
 
 
 def _read_tail(path: Optional[str], n: int = _LOG_TAIL_LINES) -> str:
-    """讀取檔案最後 n 行。"""
+    """讀取檔案最後 n 行（最多 _LOG_TAIL_MAX_CHARS 字元）。
+
+    從檔案尾端反向掃描，避免將超大 log 檔案整個載入記憶體。
+    """
     if not path or not os.path.exists(path):
         return ""
     try:
-        with open(path, encoding="utf-8", errors="replace") as f:
-            lines = f.readlines()
-        return "".join(lines[-n:])
+        # Read only the last _LOG_TAIL_MAX_CHARS bytes from disk
+        with open(path, "rb") as f:
+            f.seek(0, 2)
+            file_size = f.tell()
+            read_size = min(file_size, _LOG_TAIL_MAX_CHARS * 4)  # 4× for multibyte chars
+            f.seek(max(0, file_size - read_size))
+            raw = f.read()
+        text = raw.decode("utf-8", errors="replace")
+        lines = text.splitlines(keepends=True)
+        tail = "".join(lines[-n:])
+        if len(tail) > _LOG_TAIL_MAX_CHARS:
+            tail = "…(truncated)\n" + tail[-_LOG_TAIL_MAX_CHARS:]
+        return tail
     except Exception:
         return ""
 

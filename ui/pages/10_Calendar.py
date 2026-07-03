@@ -365,7 +365,7 @@ with st.sidebar:
         for cat, cfg in CATEGORY_CFG.items()
     }
     st.divider()
-    st.button("回到今天", on_click=_goto_today, use_container_width=True)
+    st.button("回到今天", on_click=_goto_today, width='stretch')
 
 # ── 導航列 ─────────────────────────────────────────────────────────────────
 cur_year: int = st.session_state["cal_year"]
@@ -386,13 +386,13 @@ month_names = [
 ]
 
 nav_l, nav_title, nav_r = st.columns([1, 6, 1])
-nav_l.button("◀", on_click=_prev_month, use_container_width=True, key="btn_prev")
+nav_l.button("◀", on_click=_prev_month, width='stretch', key="btn_prev")
 nav_title.markdown(
     f'<h2 style="text-align:center;margin:0;padding:6px 0;font-size:1.4rem">'
     f"{cur_year} 年 {month_names[cur_month-1]}</h2>",
     unsafe_allow_html=True,
 )
-nav_r.button("▶", on_click=_next_month, use_container_width=True, key="btn_next")
+nav_r.button("▶", on_click=_next_month, width='stretch', key="btn_next")
 
 # ── 圖例（每行 6 欄，多行排列）─────────────────────────────────────────────
 _leg_items = list(CATEGORY_CFG.items())
@@ -440,7 +440,7 @@ with st.expander(f"本月事件清單（{len(month_events)} 件）"):
                 for e in month_events
             ]
         )
-        st.dataframe(df, use_container_width=True, hide_index=True)
+        st.dataframe(df, width='stretch', hide_index=True)
         st.download_button(
             "⬇ 下載 CSV",
             df.to_csv(index=False, encoding="utf-8-sig"),

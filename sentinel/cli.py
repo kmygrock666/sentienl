@@ -18,6 +18,7 @@ from sentinel.logging_utils import get_logger, setup_logging
 from sentinel.official_calendar import fetch_official_trading_calendar
 from sentinel.persistence import finish_job_run, persist_pipeline_results, start_job_run
 from sentinel.pipeline import compute_indicators, fetch_prices, save_results, scan_strategy
+from sentinel.providers import normalize_market_name
 from sentinel.quality import validate_daily_prices
 from sentinel.query import (
     get_completeness,
@@ -1879,31 +1880,40 @@ def main(argv: Optional[List[str]] = None) -> int:
         with Session(engine) as session:
             latest_dates = get_latest_dates_by_market(session)
 
-        # 決定同步的起始日期：找所有市場中最舊的最後更新日
-        # 如果某個市場沒資料，預設從 2024-01-01 開始
-        relevant_latest_dates = [latest_dates.get(m) for m in markets if latest_dates.get(m)]
-
-        if len(relevant_latest_dates) < len(markets):
-            # 至少有一個市場沒資料
-            start_date = date(2024, 1, 1)
-        else:
-            start_date = min(relevant_latest_dates) + timedelta(days=1)
+        # 每個市場各自的起始日期，互不影響
+        market_start_dates: dict[str, date] = {}
+        for m in markets:
+            normalized = normalize_market_name(m)
+            latest = latest_dates.get(normalized)
+            if latest is None:
+                market_start_dates[normalized] = date(2024, 1, 1)
+            else:
+                market_start_dates[normalized] = latest + timedelta(days=1)
 
         end_date = today
 
-        if start_date > end_date:
-            print(
-                f"✅ 資料已是最新狀態 (最後日期: {max(relevant_latest_dates) if relevant_latest_dates else 'N/A'})"
+        # 所有市場都已是最新
+        if all(s > end_date for s in market_start_dates.values()):
+            latest_summary = ", ".join(
+                f"{m}={latest_dates.get(m)}" for m in market_start_dates
             )
+            print(f"✅ 資料已是最新狀態 ({latest_summary})")
             return 0
 
-        print(f"🔄 開始自動同步資料: {start_date} -> {end_date} (市場: {', '.join(markets)})")
+        # 全域 start_date 取最早市場起始點，供行事曆查詢使用
+        start_date = min(market_start_dates.values())
+
+        market_summary = ", ".join(
+            f"{m}:{market_start_dates[m]}" for m in market_start_dates
+        )
+        print(f"🔄 開始自動同步資料 -> {end_date} (市場起點: {market_summary})")
 
         # 設定為 run 指令的參數，複用後面的 pipeline 邏輯
         args.start_date = start_date.isoformat()
         args.end_date = end_date.isoformat()
         args.trading_date = end_date.isoformat()
         args.markets = markets
+        args.market_start_dates = market_start_dates
         args.calendar_source_mode = "auto"
         args.price_source_mode = "auto"
         args.skip_indicators = False
@@ -1994,6 +2004,7 @@ def main(argv: Optional[List[str]] = None) -> int:
             official_trading_calendar=official_trading_calendar,
             price_source_mode=args.price_source_mode,
             existing_prices=existing_prices,
+            market_start_dates=getattr(args, "market_start_dates", None),
         )
         validation_result = validate_daily_prices(fetched_prices, reference_prices=existing_prices)
         valid_prices = validation_result.valid_prices

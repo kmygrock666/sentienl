@@ -36,6 +36,43 @@ from ui.services.queries import (
     get_scan_results,
 )
 
+
+@st.cache_data(ttl=120, show_spinner=False)
+def _cached_data_freshness():
+    return get_data_freshness(get_engine())
+
+
+@st.cache_data(ttl=120, show_spinner=False)
+def _cached_quarantine_summary() -> dict:
+    return get_quarantine_summary(get_engine())
+
+
+@st.cache_data(ttl=120, show_spinner=False)
+def _cached_scan_dates() -> list:
+    return get_available_scan_dates(get_engine(), limit=60)
+
+
+@st.cache_data(ttl=120, show_spinner=False)
+def _cached_strategies() -> list:
+    return get_available_strategies(get_engine())
+
+
+@st.cache_data(ttl=60, show_spinner="載入掃描結果…")
+def _cached_scan_results(trading_date, market, strategy_id, direction, limit: int):
+    return get_scan_results(
+        get_engine(),
+        trading_date=trading_date,
+        market=market,
+        strategy_id=strategy_id,
+        direction=direction,
+        limit=limit,
+    )
+
+
+@st.cache_data(ttl=30, show_spinner=False)
+def _cached_job_runs(limit: int):
+    return get_latest_job_runs(get_engine(), limit=limit)
+
 st.set_page_config(page_title="Inspect | Sentinel", layout="wide")
 inject_css()
 st.title("🔍 Inspect")
@@ -87,14 +124,14 @@ with tab_status:
     if db_ok:
         st.divider()
         section_header("DB 直讀摘要")
-        fresh_df = get_data_freshness(engine)
+        fresh_df = _cached_data_freshness()
         if not fresh_df.empty:
             render_df(
                 fresh_df, title="股價資料新鮮度", download_filename="freshness.csv", height=200
             )
         else:
             st.info("尚無股價資料")
-        quar = get_quarantine_summary(engine)
+        quar = _cached_quarantine_summary()
         c1, c2 = st.columns(2)
         c1.metric("隔離記錄總數", quar["total"])
         c2.metric("待處理隔離", quar["pending"])
@@ -130,8 +167,8 @@ with tab_results:
     section_header("掃描結果查詢", "DB 直讀（支援方向、日期、策略、市場篩選）")
 
     if db_ok:
-        available_dates = get_available_scan_dates(engine, limit=60)
-        available_strats = get_available_strategies(engine)
+        available_dates = _cached_scan_dates()
+        available_strats = _cached_strategies()
 
         r1, r2, r3, r4, r5 = st.columns(5)
         sel_date = r1.selectbox(
@@ -156,8 +193,7 @@ with tab_results:
         q_strat = sel_strat if sel_strat != "全部" else None
         q_mkt = sel_mkt if sel_mkt != "全部" else None
 
-        df = get_scan_results(
-            engine,
+        df = _cached_scan_results(
             trading_date=q_date,
             market=q_mkt,
             strategy_id=q_strat,
@@ -221,7 +257,7 @@ with tab_logs:
     if db_ok:
         st.divider()
         section_header("DB 直讀：JobRun 記錄")
-        job_df = get_latest_job_runs(engine, limit=int(log_limit))
+        job_df = _cached_job_runs(limit=log_limit)
         render_df(job_df, title="JobRun", download_filename="job_runs.csv", height=300)
 
 

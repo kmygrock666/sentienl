@@ -13,6 +13,8 @@ from typing import Optional
 import pandas as pd
 import streamlit as st
 
+import json
+
 from ui.components.layout import inject_css, section_header
 from ui.services.command_runner import find_running_task, get_store, launch_task, poll_all_running
 from ui.services.command_specs import RUN, RUN_INTRADAY, SYNC
@@ -24,6 +26,26 @@ from ui.services.queries import (
     get_latest_price_date,
     get_latest_scan_summary,
 )
+
+_STRATEGIES_PATH = pathlib.Path(__file__).parent.parent / "config" / "strategies.json"
+
+
+@st.cache_data(show_spinner=False)
+def _load_strategy_meta() -> dict[str, dict]:
+    """載入策略元資料 strategy_id → {name, description, direction}。"""
+    try:
+        raw = json.loads(_STRATEGIES_PATH.read_text(encoding="utf-8"))
+        result = {}
+        for direction in ("long", "short"):
+            for s in raw.get(f"{direction}_strategies", []):
+                result[s["strategy_id"]] = {
+                    "name": s.get("name", s["strategy_id"]),
+                    "description": s.get("description", ""),
+                    "direction": direction,
+                }
+        return result
+    except Exception:
+        return {}
 
 
 @st.cache_data(ttl=300, show_spinner=False)
@@ -225,11 +247,27 @@ section_header(
 )
 by_strategy = scan_summary.get("by_strategy")
 if by_strategy is not None and not by_strategy.empty:
-    col_chart, col_table = st.columns([3, 1])
-    with col_chart:
-        st.bar_chart(by_strategy.set_index("strategy_id")["hits"], color="#3D6E8F")
-    with col_table:
-        st.dataframe(by_strategy, width="stretch", hide_index=True)
+    strat_meta = _load_strategy_meta()
+    # 補充策略名稱、方向、描述
+    by_strategy = by_strategy.copy()
+    by_strategy["策略名稱"] = by_strategy["strategy_id"].map(
+        lambda sid: strat_meta.get(sid, {}).get("name", sid)
+    )
+    by_strategy["方向"] = by_strategy["strategy_id"].map(
+        lambda sid: {"long": "📈 做多", "short": "📉 做空"}.get(
+            strat_meta.get(sid, {}).get("direction", ""), "—"
+        )
+    )
+    by_strategy["策略說明"] = by_strategy["strategy_id"].map(
+        lambda sid: strat_meta.get(sid, {}).get("description", "")
+    )
+
+    display_cols = ["策略名稱", "方向", "hits", "策略說明"]
+    st.dataframe(
+        by_strategy[display_cols].rename(columns={"hits": "命中數"}),
+        width="stretch",
+        hide_index=True,
+    )
     st.page_link("pages/3_Daily_Scan.py", label="查看完整結果 →", icon="📊")
 else:
     st.info("尚無掃描結果，請前往 Daily Scan 執行 Pipeline")

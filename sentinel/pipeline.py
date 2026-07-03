@@ -41,6 +41,8 @@ def fetch_prices(
     official_trading_calendar: Optional[pd.DataFrame] = None,
     price_source_mode: str = SOURCE_MODE_AUTO,
     existing_prices: Optional[pd.DataFrame] = None,
+    market_start_dates: Optional[Dict[str, date]] = None,
+    consecutive_empty_limit: int = 5,
 ) -> pd.DataFrame:
     frames: list[pd.DataFrame] = []
 
@@ -56,13 +58,16 @@ def fetch_prices(
     for market_name in markets:
         normalized_market = normalize_market_name(market_name)
         provider = build_price_provider(normalized_market)
+        # Per-market start date: allows each market to sync from its own latest date
+        market_start = (market_start_dates or {}).get(normalized_market, start_date)
         trading_dates = filter_trading_dates(
             exchange=normalized_market,
-            start_date=start_date,
+            start_date=market_start,
             end_date=end_date,
             official_overrides=official_trading_calendar,
         )
-        for trading_date in daterange(start_date, end_date):
+        consecutive_empty = 0
+        for trading_date in daterange(market_start, end_date):
             if trading_date not in trading_dates:
                 logger.info(
                     "skip_non_trading_day",
@@ -92,6 +97,7 @@ def fetch_prices(
                 ]
                 if not local_data.empty:
                     frames.append(local_data)
+                    consecutive_empty = 0
                     continue
 
             daily_prices = provider.fetch_day(
@@ -100,11 +106,23 @@ def fetch_prices(
                 source_mode=price_source_mode,
             )
             if daily_prices.empty:
+                consecutive_empty += 1
                 logger.info(
                     "empty_market_day",
                     extra={"market": normalized_market, "trading_date": trading_date.isoformat()},
                 )
+                if consecutive_empty >= consecutive_empty_limit:
+                    logger.warning(
+                        "market_fetch_stopped_consecutive_empty",
+                        extra={
+                            "market": normalized_market,
+                            "stopped_at": trading_date.isoformat(),
+                            "consecutive_empty": consecutive_empty,
+                        },
+                    )
+                    break
                 continue
+            consecutive_empty = 0
             frames.append(daily_prices)
 
     if not frames:

@@ -28,6 +28,28 @@ from ui.services.queries import (
     get_scan_results,
 )
 
+
+@st.cache_data(ttl=120, show_spinner=False)
+def _cached_scan_dates() -> list:
+    return get_available_scan_dates(get_engine(), limit=60)
+
+
+@st.cache_data(ttl=120, show_spinner=False)
+def _cached_strategies() -> list:
+    return get_available_strategies(get_engine())
+
+
+@st.cache_data(ttl=60, show_spinner="載入掃描結果…")
+def _cached_scan_results(trading_date, market, strategy_id, direction):
+    return get_scan_results(
+        get_engine(),
+        trading_date=trading_date,
+        market=market,
+        strategy_id=strategy_id,
+        direction=direction,
+        limit=500,
+    )
+
 st.set_page_config(page_title="Daily Scan | Sentinel", layout="wide")
 inject_css()
 st.title("📊 Daily Scan")
@@ -88,7 +110,7 @@ with st.form("run_form"):
 
     render_command_preview(RUN, params)
 
-    submitted = st.form_submit_button("▶ 執行 Run", use_container_width=True)
+    submitted = st.form_submit_button("▶ 執行 Run", width='stretch')
 
 if submitted:
     if start_date > end_date:
@@ -126,8 +148,8 @@ section_header("查詢掃描結果", "從資料庫讀取 scan_results，支援�
 if not db_ok:
     st.warning("資料庫未連線，無法查詢結果")
 else:
-    available_dates = get_available_scan_dates(engine, limit=60)
-    available_strategies = get_available_strategies(engine)
+    available_dates = _cached_scan_dates()
+    available_strategies = _cached_strategies()
 
     f1, f2, f3, f4 = st.columns(4)
     sel_date = f1.selectbox(
@@ -144,13 +166,11 @@ else:
     query_strategy = sel_strategy if sel_strategy != "全部" else None
     query_direction = sel_direction if sel_direction != "全部" else None
 
-    results_df = get_scan_results(
-        engine,
+    results_df = _cached_scan_results(
         trading_date=query_date,
         market=query_market,
         strategy_id=query_strategy,
         direction=query_direction,
-        limit=500,
     )
 
     render_scan_results(results_df)

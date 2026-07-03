@@ -331,7 +331,7 @@ def upsert_technical_indicators(
         return 0
 
     now = datetime.utcnow()
-    rows: List[Dict[str, Any]] = []
+    total = 0
     for column_name, spec in INDICATOR_SPECS.items():
         if column_name not in filtered.columns:
             continue
@@ -353,23 +353,23 @@ def upsert_technical_indicators(
                 "updated_at": now,
             }
         )
-        rows.extend(chunk.to_dict(orient="records"))
-
-    _upsert_rows(
-        session=session,
-        table=TechnicalIndicator.__table__,
-        rows=rows,
-        conflict_columns=[
-            "market",
-            "symbol",
-            "trading_date",
-            "indicator_name",
-            "params_hash",
-            "calc_version",
-        ],
-        update_columns=["value", "source_field", "updated_at"],
-    )
-    return len(rows)
+        rows = chunk.to_dict(orient="records")
+        _upsert_rows(
+            session=session,
+            table=TechnicalIndicator.__table__,
+            rows=rows,
+            conflict_columns=[
+                "market",
+                "symbol",
+                "trading_date",
+                "indicator_name",
+                "params_hash",
+                "calc_version",
+            ],
+            update_columns=["value", "source_field", "updated_at"],
+        )
+        total += len(rows)
+    return total
 
 
 def upsert_strategy_definitions(
