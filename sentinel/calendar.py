@@ -1,9 +1,10 @@
 from __future__ import annotations
 
 import json
+from collections.abc import Iterable
 from datetime import date
 from pathlib import Path
-from typing import Dict, Iterable, List, Optional, Set
+from typing import Dict, List, Optional, Set
 
 import pandas as pd
 
@@ -47,10 +48,7 @@ def build_trading_calendar(
             elif is_weekend(calendar_date):
                 is_trading_day = False
                 reason = "weekend"
-            elif use_official:
-                is_trading_day = True
-                reason = None
-            elif calendar_date in market_observed:
+            elif use_official or calendar_date in market_observed:
                 is_trading_day = True
                 reason = None
             else:
@@ -109,9 +107,9 @@ def save_trading_calendar(
     output_path = output_dir / "trading_calendar"
     output_path.mkdir(parents=True, exist_ok=True)
 
-    filename_prefix = "{0}_{1}".format(start_date.isoformat(), end_date.isoformat())
-    csv_path = output_path / "{0}.csv".format(filename_prefix)
-    json_path = output_path / "{0}.json".format(filename_prefix)
+    filename_prefix = f"{start_date.isoformat()}_{end_date.isoformat()}"
+    csv_path = output_path / f"{filename_prefix}.csv"
+    json_path = output_path / f"{filename_prefix}.json"
 
     export_frame = trading_calendar.copy()
     if not export_frame.empty and "calendar_date" in export_frame.columns:

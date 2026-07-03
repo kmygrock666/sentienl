@@ -2,13 +2,12 @@ from __future__ import annotations
 
 import logging
 from datetime import date, datetime
-from typing import List
 
-from sqlalchemy import and_, desc, select
+from sqlalchemy import desc, select
 from sqlalchemy.orm import Session
 
 from sentinel.intraday.fetcher import MISFetcher, parse_mis_data
-from sentinel.models import DailyPrice, IntradaySnapshot, Stock
+from sentinel.models import DailyPrice, IntradaySnapshot
 
 logger = logging.getLogger(__name__)
 

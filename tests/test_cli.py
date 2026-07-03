@@ -33,7 +33,7 @@ def test_sync_calendar_fixture_mode_writes_outputs_and_db(tmp_path, monkeypatch)
         )
 
     database_path = tmp_path / "calendar.db"
-    database_url = "sqlite:///{0}".format(database_path)
+    database_url = f"sqlite:///{database_path}"
 
     monkeypatch.setenv("TS_DATA_DIR", str(data_dir))
     monkeypatch.setenv("TS_OUTPUT_DIR", str(output_dir))
@@ -95,7 +95,7 @@ def test_sync_stocks_fixture_mode_writes_dataset_and_db(tmp_path, monkeypatch) -
         )
 
     database_path = tmp_path / "stocks.db"
-    database_url = "sqlite:///{0}".format(database_path)
+    database_url = f"sqlite:///{database_path}"
     monkeypatch.setenv("TS_DATA_DIR", str(data_dir))
     monkeypatch.setenv("TS_OUTPUT_DIR", str(output_dir))
     monkeypatch.setenv("TS_DATABASE_URL", database_url)
@@ -171,9 +171,7 @@ def test_run_fixture_mode_writes_scan_outputs_and_db(tmp_path, monkeypatch) -> N
                 "symbol": "2330",
                 "name": "台積電",
                 "market": "TWSE",
-                "trading_date": (
-                    "2025-12-{0:02d}".format(offset + 1) if offset < 31 else "2026-01-01"
-                ),
+                "trading_date": (f"2025-12-{offset + 1:02d}" if offset < 31 else "2026-01-01"),
                 "open": 580.0 + offset,
                 "high": 581.0 + offset,
                 "low": 579.0 + offset,
@@ -188,7 +186,7 @@ def test_run_fixture_mode_writes_scan_outputs_and_db(tmp_path, monkeypatch) -> N
     )
 
     database_path = tmp_path / "run.db"
-    database_url = "sqlite:///{0}".format(database_path)
+    database_url = f"sqlite:///{database_path}"
     monkeypatch.setenv("TS_DATA_DIR", str(data_dir))
     monkeypatch.setenv("TS_OUTPUT_DIR", str(output_dir))
     monkeypatch.setenv("TS_DATABASE_URL", database_url)
@@ -277,7 +275,7 @@ def test_run_quarantines_invalid_daily_prices(tmp_path, monkeypatch) -> None:
     )
 
     database_path = tmp_path / "quarantine.db"
-    database_url = "sqlite:///{0}".format(database_path)
+    database_url = f"sqlite:///{database_path}"
     monkeypatch.setenv("TS_DATA_DIR", str(data_dir))
     monkeypatch.setenv("TS_OUTPUT_DIR", str(output_dir))
     monkeypatch.setenv("TS_DATABASE_URL", database_url)
@@ -351,7 +349,7 @@ def test_backtest_writes_report_and_trades(tmp_path, monkeypatch) -> None:
                 "symbol": "2330",
                 "name": "台積電",
                 "market": "TWSE",
-                "trading_date": "2026-{0}-{1:02d}".format(month, day),
+                "trading_date": f"2026-{month}-{day:02d}",
                 "open": 100.0 + offset,
                 "high": 101.0 + offset,
                 "low": 99.0 + offset,
@@ -366,7 +364,7 @@ def test_backtest_writes_report_and_trades(tmp_path, monkeypatch) -> None:
     )
 
     database_path = tmp_path / "backtest.db"
-    database_url = "sqlite:///{0}".format(database_path)
+    database_url = f"sqlite:///{database_path}"
     monkeypatch.setenv("TS_DATA_DIR", str(data_dir))
     monkeypatch.setenv("TS_OUTPUT_DIR", str(output_dir))
     monkeypatch.setenv("TS_DATABASE_URL", database_url)

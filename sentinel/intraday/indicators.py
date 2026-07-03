@@ -2,10 +2,9 @@ from __future__ import annotations
 
 import logging
 from datetime import date, datetime, timedelta
-from typing import List, Optional
 
 import pandas as pd
-from sqlalchemy import and_, func, select
+from sqlalchemy import and_, select
 from sqlalchemy.orm import Session
 
 from sentinel.models import DailyPrice, IntradayIndicator, Stock

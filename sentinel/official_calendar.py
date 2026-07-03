@@ -3,9 +3,10 @@ from __future__ import annotations
 import re
 import subprocess
 from abc import ABC, abstractmethod
+from collections.abc import Iterable, Sequence
 from datetime import date
 from pathlib import Path
-from typing import Dict, Iterable, List, Optional, Sequence
+from typing import Dict, List, Optional
 
 import pandas as pd
 import requests
@@ -56,9 +57,7 @@ class OfficialTradingCalendarProvider(ABC):
     def fetch_year(
         self, year: int, settings: Settings, source_mode: str = SOURCE_MODE_AUTO
     ) -> pd.DataFrame:
-        cache_path = (
-            settings.raw_dir / "trading_calendar" / "{0}_{1}.csv".format(self.cache_prefix, year)
-        )
+        cache_path = settings.raw_dir / "trading_calendar" / f"{self.cache_prefix}_{year}.csv"
         if cache_path.exists():
             frame = pd.read_csv(cache_path)
             if frame.empty:
@@ -119,10 +118,7 @@ class OfficialTradingCalendarProvider(ABC):
 
     def fixture_path(self, year: int, settings: Settings) -> Path:
         return (
-            settings.raw_dir
-            / "fixtures"
-            / "trading_calendar"
-            / "{0}_{1}.html".format(self.cache_prefix, year)
+            settings.raw_dir / "fixtures" / "trading_calendar" / f"{self.cache_prefix}_{year}.html"
         )
 
     def _load_fixture_payload(self, year: int, settings: Settings) -> Optional[str]:

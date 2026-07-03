@@ -541,7 +541,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     for p in [
         inspect_parser,
-        status_parser := inspect_subparsers.choices.get("status"),
+        inspect_subparsers.choices.get("status"),
         completeness_parser,
         results_parser,
         logs_parser,
@@ -1894,18 +1894,14 @@ def main(argv: Optional[List[str]] = None) -> int:
 
         # 所有市場都已是最新
         if all(s > end_date for s in market_start_dates.values()):
-            latest_summary = ", ".join(
-                f"{m}={latest_dates.get(m)}" for m in market_start_dates
-            )
+            latest_summary = ", ".join(f"{m}={latest_dates.get(m)}" for m in market_start_dates)
             print(f"✅ 資料已是最新狀態 ({latest_summary})")
             return 0
 
         # 全域 start_date 取最早市場起始點，供行事曆查詢使用
         start_date = min(market_start_dates.values())
 
-        market_summary = ", ".join(
-            f"{m}:{market_start_dates[m]}" for m in market_start_dates
-        )
+        market_summary = ", ".join(f"{m}:{market_start_dates[m]}" for m in market_start_dates)
         print(f"🔄 開始自動同步資料 -> {end_date} (市場起點: {market_summary})")
 
         # 設定為 run 指令的參數，複用後面的 pipeline 邏輯

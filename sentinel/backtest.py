@@ -1,9 +1,10 @@
 from __future__ import annotations
 
 import json
+from collections.abc import Iterable
 from datetime import date, datetime
 from pathlib import Path
-from typing import Iterable, Optional
+from typing import Optional
 
 import pandas as pd
 
@@ -241,9 +242,7 @@ def save_backtest_results(
     end_date: date,
     initial_capital: Optional[float] = None,
 ) -> dict[str, Path]:
-    output_path = (
-        output_dir / "backtests" / "{0}_{1}".format(start_date.isoformat(), end_date.isoformat())
-    )
+    output_path = output_dir / "backtests" / f"{start_date.isoformat()}_{end_date.isoformat()}"
     output_path.mkdir(parents=True, exist_ok=True)
 
     reports_path = output_path / "report.csv"
@@ -286,7 +285,7 @@ def save_backtest_results(
                     lambda x: f"{x:.2%}" if pd.notnull(x) else "N/A"
                 )
 
-        md_content = f"# 回測績效報告\n\n"
+        md_content = "# 回測績效報告\n\n"
         md_content += f"- 測試期間: {start_date} ~ {end_date}\n"
         md_content += f"- 執行時間: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n"
 
@@ -316,7 +315,7 @@ def save_backtest_results(
         ].to_markdown(index=False)
         report_md_path.write_text(md_content, encoding="utf-8")
     else:
-        report_md_path.write_text(f"# 回測績效報告\n\n無交易紀錄。", encoding="utf-8")
+        report_md_path.write_text("# 回測績效報告\n\n無交易紀錄。", encoding="utf-8")
 
     # Generate Trades Markdown
     if not trades.empty:
@@ -343,7 +342,7 @@ def save_backtest_results(
                 lambda x: f"${x:,.0f}" if pd.notnull(x) else ""
             )
 
-        md_content = f"# 交易明細\n\n"
+        md_content = "# 交易明細\n\n"
         md_content += f"- 總計交易: {len(md_trades)} 筆\n\n"
         display_cols = [
             "策略",
@@ -361,7 +360,7 @@ def save_backtest_results(
         md_content += md_trades[display_cols].to_markdown(index=False)
         trades_md_path.write_text(md_content, encoding="utf-8")
     else:
-        trades_md_path.write_text(f"# 交易明細\n\n無交易紀錄。", encoding="utf-8")
+        trades_md_path.write_text("# 交易明細\n\n無交易紀錄。", encoding="utf-8")
 
     metadata = {
         "generated_at": datetime.utcnow().isoformat(timespec="seconds") + "Z",

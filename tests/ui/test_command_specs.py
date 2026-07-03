@@ -4,8 +4,6 @@ from __future__ import annotations
 
 import sys
 
-import pytest
-
 
 def test_build_argv_basic() -> None:
     """基本 argv 組裝：必填欄位正確附加。"""

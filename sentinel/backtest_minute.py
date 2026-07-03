@@ -1,9 +1,10 @@
 from __future__ import annotations
 
 import json
+from collections.abc import Iterable
 from datetime import date, datetime, timedelta
 from pathlib import Path
-from typing import Iterable, List, Optional, Tuple
+from typing import List, Optional, Tuple
 
 import pandas as pd
 from sqlalchemy.orm import Session
@@ -201,9 +202,6 @@ def _simulate_single_trade(
     if isinstance(signal_date, str):
         signal_date = date.fromisoformat(signal_date)
 
-    # 進場日 = 訊號日隔日（需向後查詢實際交易日）
-    entry_date_candidate = signal_date + timedelta(days=1)
-
     # 載入足夠的 5m 資料：訊號日前 DATA_BUFFER_DAYS 天到 end_date + 緩衝
     data_start = signal_date - timedelta(days=DATA_BUFFER_DAYS)
     data_end = min(end_date + timedelta(days=MAX_HOLDING_DAYS), end_date + timedelta(days=90))
@@ -321,18 +319,14 @@ def _simulate_exit(
         # 判斷開盤是否已超過停利目標
         gap_up_mode = open_price > target_price
 
-        if gap_up_mode:
-            # 開盤 > +3%：改為追漲停
-            day_target = limit_up_price
-        else:
-            day_target = target_price
+        # 開盤 > +3%：改為追漲停；否則維持原停利目標
+        day_target = limit_up_price if gap_up_mode else target_price
 
         # 逐根 5m K 走場
         cumulative_closes = []
-        for idx, bar in day_bars.iterrows():
+        for _, bar in day_bars.iterrows():
             bar_high = float(bar["high"])
             bar_close = float(bar["close"])
-            bar_time = bar["bar_time"]
             cumulative_closes.append(bar_close)
 
             # 計算到目前為止的日均線
@@ -463,9 +457,7 @@ def save_minute_backtest_results(
 ) -> dict[str, Path]:
     """儲存分鐘回測結果。"""
     output_path = (
-        output_dir
-        / "backtests"
-        / "minute_{0}_{1}".format(start_date.isoformat(), end_date.isoformat())
+        output_dir / "backtests" / f"minute_{start_date.isoformat()}_{end_date.isoformat()}"
     )
     output_path.mkdir(parents=True, exist_ok=True)
 
@@ -508,9 +500,9 @@ def save_minute_backtest_results(
                     lambda x: f"{x:.2%}" if pd.notnull(x) else "N/A"
                 )
 
-        md_content = f"# 分鐘K線精確回測 - 績效報告\n\n"
+        md_content = "# 分鐘K線精確回測 - 績效報告\n\n"
         md_content += f"- 測試期間: {start_date} ~ {end_date}\n"
-        md_content += f"- 執行模型: `minute_bar_execution`\n"
+        md_content += "- 執行模型: `minute_bar_execution`\n"
 
         if initial_capital is not None:
             row = reports.iloc[0]
@@ -522,8 +514,8 @@ def save_minute_backtest_results(
                 md_content += f"- **最終餘額: ${f_bal:,.0f}**\n"
                 md_content += f"- **核心盈虧: ${net_pnl:,.0f} ({net_pnl/f_cap:+.2%})**\n"
 
-        md_content += f"- 進場: 五分K五日均線\n"
-        md_content += f"- 出場: +3%停利 / 跌破日均線停損 / 開盤>3%追漲停\n"
+        md_content += "- 進場: 五分K五日均線\n"
+        md_content += "- 出場: +3%停利 / 跌破日均線停損 / 開盤>3%追漲停\n"
         md_content += f"- 執行時間: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n\n"
 
         display_cols = [
@@ -593,7 +585,7 @@ def save_minute_backtest_results(
                 lambda x: f"${x:,.0f}" if pd.notnull(x) else ""
             )
 
-        md_content = f"# 分鐘K線精確回測 - 交易明細\n\n"
+        md_content = "# 分鐘K線精確回測 - 交易明細\n\n"
         md_content += f"- 總計交易: {len(md_trades)} 筆\n\n"
         display_cols = [
             "策略",

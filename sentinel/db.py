@@ -14,7 +14,6 @@ def create_db_engine(database_url: str) -> Engine:
     if database_url.startswith("sqlite"):
         # 增加 timeout 與設定連線事件
         from sqlalchemy import event
-        from sqlalchemy.pool import QueuePool
 
         engine = create_engine(database_url, connect_args={"timeout": 30.0}, future=True)
 
@@ -83,7 +82,7 @@ def _migrate_legacy_sqlite_schema(engine: Engine) -> None:
 
     with engine.begin() as connection:
         for table_name in legacy_tables:
-            connection.exec_driver_sql("ALTER TABLE {0} RENAME TO {0}__legacy".format(table_name))
+            connection.exec_driver_sql(f"ALTER TABLE {table_name} RENAME TO {table_name}__legacy")
 
     Base.metadata.create_all(bind=engine)
 
@@ -244,4 +243,4 @@ def _migrate_legacy_sqlite_schema(engine: Engine) -> None:
                     else copy_sql["scan_results_without_market"]
                 )
             connection.exec_driver_sql(statement)
-            connection.exec_driver_sql("DROP TABLE {0}__legacy".format(table_name))
+            connection.exec_driver_sql(f"DROP TABLE {table_name}__legacy")

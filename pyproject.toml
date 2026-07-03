@@ -64,7 +64,15 @@ target-version = "py39"
 
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "UP", "B", "SIM"]
-ignore = ["E501"]  # black handles line length
+ignore = [
+    "E501",  # black handles line length
+    # 型別註解現代化規則：pydantic 於 py3.9 執行期評估註解，X | None 會炸；
+    # TODO: 基線升到 python >= 3.10 後移除以下四項並跑 ruff --fix
+    "UP006",
+    "UP030",
+    "UP035",
+    "UP045",
+]
 
 # ---------------------------------------------------------------------------
 # mypy

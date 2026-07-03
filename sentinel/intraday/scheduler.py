@@ -13,7 +13,7 @@ from sentinel.db import create_db_engine
 from sentinel.intraday.engine import run_tomorrow_star_scan
 from sentinel.intraday.notifiers import TelegramNotifier, build_telegram_notifier
 from sentinel.intraday.snapshots import capture_intraday_snapshot
-from sentinel.intraday.trades import monitor_and_close_intraday_trades, update_intraday_trades
+from sentinel.intraday.trades import monitor_and_close_intraday_trades
 from sentinel.models import TradingCalendar
 
 logger = logging.getLogger(__name__)

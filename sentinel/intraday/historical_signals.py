@@ -1,8 +1,6 @@
 from __future__ import annotations
 
-import logging
 from datetime import date, timedelta
-from typing import Dict, List, Optional, Tuple
 
 import pandas as pd
 from sqlalchemy import text
@@ -35,7 +33,7 @@ def generate_tomorrow_star_signals(
     # 取得回測期間所有的實際交易日（從 daily_prices）
     stmt_dates = text(
         """
-        SELECT DISTINCT trading_date FROM daily_prices 
+        SELECT DISTINCT trading_date FROM daily_prices
         WHERE trading_date >= :start_date AND trading_date <= :end_date
         ORDER BY trading_date
     """
@@ -57,8 +55,8 @@ def generate_tomorrow_star_signals(
         # 取得前一個交易日
         stmt_prev_date = text(
             """
-            SELECT trading_date FROM daily_prices 
-            WHERE trading_date < :curr_date 
+            SELECT trading_date FROM daily_prices
+            WHERE trading_date < :curr_date
             ORDER BY trading_date DESC LIMIT 1
         """
         )
@@ -89,34 +87,13 @@ def generate_tomorrow_star_signals(
         target_map = {(row.market, row.symbol): float(row.prev_close) for row in targets}
         target_keys = list(target_map.keys())
 
-        # 計算這 N 檔個股的前 5 日平均量 (包含 prev_date 往前推 5 個交易日)
-        # 用 subquery 找出每檔前 5 日
-        stmt_avg_vol = text(
-            """
-            WITH ranked_vols AS (
-                SELECT market, symbol, volume,
-                       ROW_NUMBER() OVER(PARTITION BY market, symbol ORDER BY trading_date DESC) as rn
-                FROM daily_prices
-                WHERE trading_date <= :prev_date
-                  AND (market, symbol) IN :target_keys
-            )
-            SELECT market, symbol, AVG(volume) as avg_vol_5d
-            FROM ranked_vols
-            WHERE rn <= 5
-            GROUP BY market, symbol
-        """
-        )
-        # SQLAlchemy requires converting tuples to list of tuples for IN clause,
-        # but text() with IN tuple can be tricky. We use expanding binding or construct safe IN clause if needed.
-        # But wait, passing a list of tuples to expanding IN in generic text() is only supported in specific DB dialects.
-        # We can fetch daily_prices for dates between (prev_date - 15 days) and prev_date directly and group by in pandas.
-
-        # fallback to pandas for avg volume to avoid SQL complex syntax issues:
+        # 計算這 N 檔個股的前 5 日平均量：直接撈區間資料後用 pandas 分組，
+        # 避免 text() 的 tuple IN 子句在不同 DB 方言間的相容性問題。
         start_5d = prev_date - timedelta(days=15)
         stmt_vols = text(
             """
-            SELECT market, symbol, trading_date, volume 
-            FROM daily_prices 
+            SELECT market, symbol, trading_date, volume
+            FROM daily_prices
             WHERE trading_date BETWEEN :start_5d AND :prev_date
         """
         )

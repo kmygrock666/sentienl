@@ -29,14 +29,28 @@ def engine() -> Engine:
 def test_get_latest_institutional_date_returns_max(engine: Engine) -> None:
     """Returns the highest trading_date across all markets/symbols."""
     with Session(engine) as s:
-        s.add(InstitutionalFlow(
-            market="TWSE", symbol="2330", trading_date=date(2026, 6, 18),
-            foreign_net=1000, investment_trust_net=0, dealer_net=0, total_net=1000,
-        ))
-        s.add(InstitutionalFlow(
-            market="TPEX", symbol="5483", trading_date=date(2026, 6, 20),
-            foreign_net=500, investment_trust_net=0, dealer_net=0, total_net=500,
-        ))
+        s.add(
+            InstitutionalFlow(
+                market="TWSE",
+                symbol="2330",
+                trading_date=date(2026, 6, 18),
+                foreign_net=1000,
+                investment_trust_net=0,
+                dealer_net=0,
+                total_net=1000,
+            )
+        )
+        s.add(
+            InstitutionalFlow(
+                market="TPEX",
+                symbol="5483",
+                trading_date=date(2026, 6, 20),
+                foreign_net=500,
+                investment_trust_net=0,
+                dealer_net=0,
+                total_net=500,
+            )
+        )
         s.commit()
 
     result = get_latest_institutional_date(engine)
@@ -56,14 +70,28 @@ def test_get_latest_main_force_dates_returns_per_symbol(engine: Engine) -> None:
     """Returns the max trading_date for each requested symbol."""
     with Session(engine) as s:
         for d in [date(2026, 6, 18), date(2026, 6, 20)]:
-            s.add(MainForceDaily(
-                market="TWSE", symbol="2330", trading_date=d,
-                main_buy=10000, main_sell=-5000, main_net=5000, top_n=15,
-            ))
-        s.add(MainForceDaily(
-            market="TPEX", symbol="5347", trading_date=date(2026, 6, 19),
-            main_buy=3000, main_sell=-1000, main_net=2000, top_n=15,
-        ))
+            s.add(
+                MainForceDaily(
+                    market="TWSE",
+                    symbol="2330",
+                    trading_date=d,
+                    main_buy=10000,
+                    main_sell=-5000,
+                    main_net=5000,
+                    top_n=15,
+                )
+            )
+        s.add(
+            MainForceDaily(
+                market="TPEX",
+                symbol="5347",
+                trading_date=date(2026, 6, 19),
+                main_buy=3000,
+                main_sell=-1000,
+                main_net=2000,
+                top_n=15,
+            )
+        )
         s.commit()
 
     result = get_latest_main_force_dates(engine, ["2330", "5347"])

@@ -429,8 +429,8 @@ def fetch_yahoo_historical(
     """
     try:
         import yfinance as yf
-    except ImportError:
-        raise RuntimeError("yfinance not installed. Run: pip install yfinance")
+    except ImportError as exc:
+        raise RuntimeError("yfinance not installed. Run: pip install yfinance") from exc
 
     from datetime import timedelta
 
@@ -547,11 +547,7 @@ def normalize_market_name(market_name: str) -> str:
 
 
 def _to_minguo_date(trading_date: date) -> str:
-    return "{year}/{month:02d}/{day:02d}".format(
-        year=trading_date.year - 1911,
-        month=trading_date.month,
-        day=trading_date.day,
-    )
+    return f"{trading_date.year - 1911}/{trading_date.month:02d}/{trading_date.day:02d}"
 
 
 def _find_column(frame: pd.DataFrame, candidates: list[str]) -> str:

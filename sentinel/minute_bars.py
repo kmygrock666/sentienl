@@ -1,7 +1,6 @@
 from __future__ import annotations
 
-import logging
-from datetime import date, datetime, timedelta
+from datetime import date
 from pathlib import Path
 from typing import Optional
 
@@ -259,9 +258,7 @@ def is_limit_up_at_open(
     first_bar = day_bars.iloc[0]
     limit_price = prev_close * (1.0 + limit_pct)
     # 若開盤價接近漲停價（容許 0.5% 誤差）且首根量極低
-    if float(first_bar["open"]) >= limit_price * 0.995:
-        return True
-    return False
+    return float(first_bar["open"]) >= limit_price * 0.995
 
 
 def get_prev_close(

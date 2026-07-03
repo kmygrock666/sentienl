@@ -520,12 +520,12 @@ def _add_moving_average_indicators(
 ) -> None:
     """均線、均線方向、量均。"""
     for window in (5, 10, 15, 20, 30, 60, 180, 200, 360, 600):
-        group["ma{0}".format(window)] = close.rolling(window=window, min_periods=window).mean()
+        group[f"ma{window}"] = close.rolling(window=window, min_periods=window).mean()
 
     for window in (5, 10, 15, 20, 30, 60):
-        group["ma{0}_up".format(window)] = (
-            group["ma{0}".format(window)] > group["ma{0}".format(window)].shift(1)
-        ).astype(float)
+        group[f"ma{window}_up"] = (group[f"ma{window}"] > group[f"ma{window}"].shift(1)).astype(
+            float
+        )
 
     group["volume_ma5"] = volume.rolling(window=5, min_periods=5).mean()
 
@@ -577,16 +577,11 @@ def _add_purity_and_blackcandle_indicators(
 
     # 1. Length-based filtering:
     # Regular stocks are 4 digits. Warrants and some ETFs are 5-6 digits.
-    if len(symbol_str) > 4:
-        is_pure = 0.0
-    # 2. Suffix-based filtering for Preferred Stocks or special classes:
-    # 4-digit codes ending in A, B, C, D, E, F, G are usually preferred stocks.
-    elif any(symbol_str.endswith(suffix) for suffix in ["A", "B", "C", "D", "E", "F", "G"]):
-        is_pure = 0.0
-    # 3. ETF Prefix checking:
-    # In Taiwan, many ETFs start with '00' (even 4-digit ones like 0050).
-    # Since we want "Pure Stocks" (non-ETF), we exclude these.
-    elif symbol_str.startswith("00"):
+    if (
+        len(symbol_str) > 4
+        or any(symbol_str.endswith(suffix) for suffix in ["A", "B", "C", "D", "E", "F", "G"])
+        or symbol_str.startswith("00")
+    ):
         is_pure = 0.0
 
     group["is_pure_stock"] = is_pure

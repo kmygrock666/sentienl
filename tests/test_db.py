@@ -23,7 +23,7 @@ from sentinel.pipeline import compute_indicators, scan_strategy
 
 def test_create_schema_builds_core_tables(tmp_path) -> None:
     database_path = tmp_path / "test.db"
-    engine = create_db_engine("sqlite:///{0}".format(database_path))
+    engine = create_db_engine(f"sqlite:///{database_path}")
 
     create_schema(engine)
 
@@ -35,7 +35,7 @@ def test_create_schema_builds_core_tables(tmp_path) -> None:
 
 def test_persist_pipeline_results_writes_core_records(tmp_path) -> None:
     database_path = tmp_path / "persist.db"
-    engine = create_db_engine("sqlite:///{0}".format(database_path))
+    engine = create_db_engine(f"sqlite:///{database_path}")
     create_schema(engine)
 
     prices = pd.DataFrame(
@@ -123,7 +123,7 @@ def test_persist_pipeline_results_writes_core_records(tmp_path) -> None:
 
 def test_persist_pipeline_results_writes_quarantine_rows(tmp_path) -> None:
     database_path = tmp_path / "quarantine.db"
-    engine = create_db_engine("sqlite:///{0}".format(database_path))
+    engine = create_db_engine(f"sqlite:///{database_path}")
     create_schema(engine)
 
     trading_calendar = pd.DataFrame(
@@ -193,7 +193,7 @@ def test_persist_pipeline_results_writes_quarantine_rows(tmp_path) -> None:
 
 def test_persist_pipeline_results_keeps_same_symbol_across_markets(tmp_path) -> None:
     database_path = tmp_path / "cross_market.db"
-    engine = create_db_engine("sqlite:///{0}".format(database_path))
+    engine = create_db_engine(f"sqlite:///{database_path}")
     create_schema(engine)
 
     prices = pd.DataFrame(
@@ -305,7 +305,7 @@ def test_persist_pipeline_results_keeps_same_symbol_across_markets(tmp_path) -> 
 
 def test_create_schema_migrates_legacy_marketless_sqlite_tables(tmp_path) -> None:
     database_path = tmp_path / "legacy.db"
-    engine = create_db_engine("sqlite:///{0}".format(database_path))
+    engine = create_db_engine(f"sqlite:///{database_path}")
 
     with engine.begin() as connection:
         connection.exec_driver_sql(

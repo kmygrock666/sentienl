@@ -3,11 +3,12 @@ from __future__ import annotations
 import json
 import re
 from abc import ABC, abstractmethod
+from collections.abc import Iterable, Sequence
 from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
 from io import StringIO
 from pathlib import Path
-from typing import Dict, Iterable, Optional, Sequence
+from typing import Dict, Optional
 
 import pandas as pd
 import requests
@@ -17,7 +18,6 @@ from sentinel.logging_utils import get_logger
 from sentinel.providers import (
     SOURCE_MODE_AUTO,
     SOURCE_MODE_FIXTURE,
-    SOURCE_MODE_NETWORK,
     normalize_market_name,
 )
 
@@ -268,7 +268,7 @@ class StockMasterProvider(ABC):
         raise NotImplementedError
 
     def fixture_path(self, settings: Settings) -> Path:
-        return settings.raw_dir / "fixtures" / "stocks" / "{0}.csv".format(self.fixture_prefix)
+        return settings.raw_dir / "fixtures" / "stocks" / f"{self.fixture_prefix}.csv"
 
     def _load_fixture_payload(self, settings: Settings) -> Optional[str]:
         fixture_path = self.fixture_path(settings=settings)
@@ -560,9 +560,7 @@ def _is_tradeable_equity(symbol: str) -> bool:
     if re.match(r"^0[12]\d", s):
         return False
     # Leveraged/inverse ETFs and structured products: ends with L, R, K, U, A, B, T, D
-    if re.match(r"^\d{5,6}[LRKUABTDlrkuabtd]$", s):
-        return False
-    return True
+    return not re.match(r"^\d{5,6}[LRKUABTDlrkuabtd]$", s)
 
 
 def _parse_isin_html_stock_master(
@@ -660,10 +658,10 @@ def _find_stock_master_column(
         if key in normalized_candidates:
             return column
     if optional:
-        placeholder = "__missing_{0}".format(candidates[0])
+        placeholder = f"__missing_{candidates[0]}"
         frame[placeholder] = ""
         return placeholder
-    raise KeyError("Missing stock master column. candidates={0}".format(candidates))
+    raise KeyError(f"Missing stock master column. candidates={candidates}")
 
 
 def _decode_stock_master_payload(payload: bytes) -> str:

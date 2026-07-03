@@ -2,8 +2,9 @@ from __future__ import annotations
 
 import datetime as _dt
 import json
+from collections.abc import Iterable
 from pathlib import Path
-from typing import Any, Dict, Iterable, Optional
+from typing import Any, Dict, Optional
 
 import pandas as pd
 
@@ -85,7 +86,7 @@ def load_strategy_definitions(path: Optional[Path] = None) -> list[dict]:
             raise RuntimeError("PyYAML is required to load YAML strategy files") from exc
         loaded = yaml.safe_load(payload)
         return _normalize_strategy_definitions(loaded)
-    raise ValueError("Unsupported strategy config format: {0}".format(path.suffix))
+    raise ValueError(f"Unsupported strategy config format: {path.suffix}")
 
 
 def scan_strategies(
@@ -178,10 +179,9 @@ def scan_strategies(
                 .size()
                 .reset_index(name="_cnt")
             )
-            candidates = (
-                candidates.merge(sym_counts, on=["market", "symbol"], how="left")
-                .pipe(lambda d: d[d["_cnt"].fillna(0) >= min_history_days])
-                .drop(columns=["_cnt"])
+            candidates = candidates.merge(sym_counts, on=["market", "symbol"], how="left")
+            candidates = candidates[candidates["_cnt"].fillna(0) >= min_history_days].drop(
+                columns=["_cnt"]
             )
             if candidates.empty:
                 continue
@@ -390,7 +390,7 @@ def _compare_values(left_value: Any, operator: str, right_value: Any) -> bool:
         return bool(left_value == right_value)
     if operator == "!=":
         return bool(left_value != right_value)
-    raise ValueError("Unsupported operator: {0}".format(operator))
+    raise ValueError(f"Unsupported operator: {operator}")
 
 
 def _build_condition_result(

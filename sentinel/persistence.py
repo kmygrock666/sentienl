@@ -2,8 +2,9 @@ from __future__ import annotations
 
 import hashlib
 import json
+from collections.abc import Sequence
 from datetime import date, datetime
-from typing import Any, Dict, List, Optional, Sequence, Union
+from typing import Any, Dict, List, Optional, Union
 
 import pandas as pd
 from sqlalchemy import and_
@@ -418,7 +419,7 @@ def upsert_scan_results(
                 "trading_date": _to_date(row.get("trading_date", trading_date)),
                 "score": float(row.get("score", 1.0)),
                 "signals_json": {
-                    **((_to_jsonable(row.get("signals_json")) or {})),
+                    **(_to_jsonable(row.get("signals_json")) or {}),
                     **({"direction": row["direction"]} if row.get("direction") else {}),
                 },
                 "data_version": data_version,
@@ -603,7 +604,7 @@ def backfill_aggregated_bars(session: Session, prices: pd.DataFrame) -> Dict[str
             )
             merged["period_idx"] = merged["seq_idx"] // n
 
-            for (symbol, period_idx), grp in merged.groupby(["symbol", "period_idx"]):
+            for (symbol, _period_idx), grp in merged.groupby(["symbol", "period_idx"]):
                 if len(grp) < n:
                     continue  # incomplete block — skip
                 agg = _aggregate_ohlcv(grp)

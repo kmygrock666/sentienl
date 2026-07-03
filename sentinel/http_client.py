@@ -2,7 +2,8 @@ from __future__ import annotations
 
 import math
 import subprocess
-from typing import Mapping, Optional
+from collections.abc import Mapping
+from typing import Optional
 from urllib.parse import urlencode
 
 import requests
@@ -44,7 +45,7 @@ def _fetch_text_with_curl(
     if params:
         query = urlencode([(key, value) for key, value in params.items()])
         separator = "&" if "?" in url else "?"
-        full_url = "{0}{1}{2}".format(url, separator, query)
+        full_url = f"{url}{separator}{query}"
 
     command = [
         "curl",

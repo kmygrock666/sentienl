@@ -1,5 +1,5 @@
 from datetime import date
-from typing import Dict, List, Optional
+from typing import Dict, Optional
 
 from sqlalchemy import desc, func, select
 from sqlalchemy.orm import Session
@@ -50,7 +50,7 @@ def get_completeness(session: Session, target_date: date):
         select(Stock.symbol, Stock.market)
         .join(TradingCalendar, (TradingCalendar.exchange == Stock.market))
         .where(TradingCalendar.calendar_date == target_date)
-        .where(TradingCalendar.is_trading_day == True)
+        .where(TradingCalendar.is_trading_day.is_(True))
         .where(Stock.list_status == "active")
     ).subquery()
 
@@ -74,7 +74,7 @@ def get_completeness(session: Session, target_date: date):
             & (DailyPrice.symbol == expected_subq.c.symbol)
             & (DailyPrice.trading_date == target_date),
         )
-        .where(DailyPrice.symbol == None)
+        .where(DailyPrice.symbol.is_(None))
     )
     missing_stocks = session.execute(missing_query).all()
 

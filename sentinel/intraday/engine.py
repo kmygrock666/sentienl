@@ -159,9 +159,12 @@ def run_tomorrow_star_scan(
         if p["close"] == p["limit_up"] and p["best_bid_volume"].isdigit():
             locked_vol = int(p["best_bid_volume"])
 
-        if p["last_trade_volume"] > 0 and locked_vol > 0:
-            if p["last_trade_volume"] >= (locked_vol / GREAT_POWER_LOCK_RATIO):
-                is_great_power = True
+        if (
+            p["last_trade_volume"] > 0
+            and locked_vol > 0
+            and p["last_trade_volume"] >= (locked_vol / GREAT_POWER_LOCK_RATIO)
+        ):
+            is_great_power = True
 
         win_rate = 0.0
         ind = indicators.get((p["market"], p["symbol"]))

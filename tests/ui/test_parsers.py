@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import pytest
-
 
 def test_parse_run_output_hits() -> None:
     """能從 run stdout 解析出 total_hits。"""
