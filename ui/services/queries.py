@@ -45,9 +45,13 @@ _DIR_MAP: dict[str, str] = _strategy_direction_map()
 
 
 @st.cache_resource
-def _cached_price_dataset() -> pd.DataFrame:
-    """Load full price CSV once and hold in memory across all page navigations."""
-    return load_price_dataset(Settings().price_dataset_path)
+def _cached_price_dataset(dataset_path: str) -> pd.DataFrame:
+    """Load full price CSV once and hold in memory across all page navigations.
+
+    以路徑作為快取鍵：路徑（設定）改變時會重新載入，而非沿用舊資料。
+    """
+    return load_price_dataset(_Path(dataset_path))
+
 
 _PRICE_FRAME_COLUMNS = [
     "market",
@@ -72,7 +76,7 @@ def load_symbol_prices(symbol: str, days: int = 120, market: str | None = None) 
                 TPEX，會造成 (symbol, trading_date) 重複，呼叫端應傳入
                 market 以避免碰撞）。
     """
-    dataset = _cached_price_dataset()
+    dataset = _cached_price_dataset(str(Settings().price_dataset_path))
     if dataset.empty:
         return pd.DataFrame(columns=_PRICE_FRAME_COLUMNS)
     matched = dataset.loc[dataset["symbol"].astype(str) == symbol]
@@ -661,9 +665,7 @@ def get_latest_institutional_date(engine: Engine) -> Optional[date]:
         return s.query(func.max(InstitutionalFlow.trading_date)).scalar()
 
 
-def get_latest_main_force_dates(
-    engine: Engine, symbols: list[str]
-) -> dict[str, Optional[date]]:
+def get_latest_main_force_dates(engine: Engine, symbols: list[str]) -> dict[str, Optional[date]]:
     """批次查詢各個股 MainForceDaily 最新 trading_date。
 
     回傳 {symbol: date | None}，清單中但 DB 無資料的個股映射到 None。
