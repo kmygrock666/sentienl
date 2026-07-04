@@ -1,9 +1,16 @@
-pandas
+# pandas 3.x 有 breaking changes（本機/測試基線為 2.x），升級需專案性遷移
+pandas>=2.1,<3
+tabulate  # pandas DataFrame.to_markdown 的選配依賴（save_results 輸出 MD 報告）
 requests
 pydantic-settings
 psycopg2-binary
-SQLAlchemy
+SQLAlchemy>=2.0,<3
 alembic
 pytest
 apscheduler
 yfinance
+
+# UI 依賴（ui/ 與 tests/ui 需要；與 pyproject [ui] extra 對應）
+streamlit
+plotly
+jsonschema
