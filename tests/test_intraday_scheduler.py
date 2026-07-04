@@ -31,11 +31,23 @@ def test_notifier_enabled_with_credentials(monkeypatch: pytest.MonkeyPatch) -> N
 @pytest.mark.unit
 def test_no_hardcoded_token_in_source() -> None:
     """確保洩漏過的 token 片段不再出現在原始碼。"""
+    from pathlib import Path
+
     import sentinel.cli
     import sentinel.intraday.scheduler
+    import sentinel.services
 
-    for mod in (sentinel.intraday.scheduler, sentinel.cli):
-        source = inspect.getsource(mod)
-        assert "5675544561" not in source, mod.__name__
-        assert "-5018674933" not in source, mod.__name__
-        assert "AAG7ANUJ" not in source, mod.__name__
+    sources = {
+        "sentinel.intraday.scheduler": inspect.getsource(sentinel.intraday.scheduler),
+    }
+    for package in (sentinel.cli, sentinel.services):
+        package_dir = Path(package.__file__).parent
+        for source_path in sorted(package_dir.glob("*.py")):
+            sources[f"{package.__name__}/{source_path.name}"] = source_path.read_text(
+                encoding="utf-8"
+            )
+
+    for name, source in sources.items():
+        assert "5675544561" not in source, name
+        assert "-5018674933" not in source, name
+        assert "AAG7ANUJ" not in source, name
