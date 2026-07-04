@@ -115,7 +115,7 @@ with tab_run:
             params_bt["initial-capital"] = initial_cap
 
         render_command_preview(BACKTEST, params_bt)
-        bt_submitted = st.form_submit_button("▶ 執行回測", width='stretch')
+        bt_submitted = st.form_submit_button("▶ 執行回測", width="stretch")
 
     if bt_submitted:
         if start_date > end_date:
@@ -219,7 +219,7 @@ with tab_compare:
                 ]
                 st.dataframe(
                     metrics_df[[c for c in show_cols if c in metrics_df.columns]],
-                    width='stretch',
+                    width="stretch",
                     hide_index=True,
                 )
 

@@ -50,6 +50,7 @@ def _cached_scan_results(trading_date, market, strategy_id, direction):
         limit=500,
     )
 
+
 st.set_page_config(page_title="Daily Scan | Sentinel", layout="wide")
 inject_css()
 st.title("📊 Daily Scan")
@@ -110,7 +111,7 @@ with st.form("run_form"):
 
     render_command_preview(RUN, params)
 
-    submitted = st.form_submit_button("▶ 執行 Run", width='stretch')
+    submitted = st.form_submit_button("▶ 執行 Run", width="stretch")
 
 if submitted:
     if start_date > end_date:

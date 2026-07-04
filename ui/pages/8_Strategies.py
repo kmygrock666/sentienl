@@ -165,7 +165,7 @@ if all_ids:
                 cond_df,
                 key=f"cond_editor_{sel_id}",
                 num_rows="dynamic",
-                width='stretch',
+                width="stretch",
             )
             if st.button("💾 儲存條件", type="primary"):
                 new_conditions = clean_editor_rows(edited_df.to_dict("records"))

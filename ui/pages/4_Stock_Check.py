@@ -41,6 +41,7 @@ def _load_signal_descriptions() -> dict[str, str]:
     except Exception:
         return {}
 
+
 WatchItem = dict  # {"symbol": str, "name": str}
 
 
@@ -107,7 +108,7 @@ if watchlist:
     cols = st.columns(min(len(watchlist), 6))
     for i, item in enumerate(watchlist):
         label = f"{item['name']} {item['symbol']}" if item.get("name") else item["symbol"]
-        if cols[i % 6].button(label, key=f"wl_{item['symbol']}", width='stretch'):
+        if cols[i % 6].button(label, key=f"wl_{item['symbol']}", width="stretch"):
             st.session_state["sc_symbol"] = item["symbol"]
 
 # ── 表單 ────────────────────────────────────────────────────────────────────
@@ -128,7 +129,7 @@ with st.form("check_stock_form"):
     if check_date:
         preview_params["date"] = check_date.isoformat()
     render_command_preview(CHECK_STOCK, preview_params)
-    submitted = st.form_submit_button("▶ 執行 check-stock", width='stretch')
+    submitted = st.form_submit_button("▶ 執行 check-stock", width="stretch")
 
 if submitted:
     if not symbol or not symbol.strip():
@@ -177,14 +178,14 @@ if meta.get("symbol") or meta.get("name"):
     if cur_sym:
         in_wl = cur_sym in _wl_symbols(st.session_state["watchlist"])
         if in_wl:
-            if wl_col.button("✕ 移出清單", key="wl_remove", width='stretch'):
+            if wl_col.button("✕ 移出清單", key="wl_remove", width="stretch"):
                 st.session_state["watchlist"] = [
                     it for it in st.session_state["watchlist"] if it["symbol"] != cur_sym
                 ]
                 _save_watchlist(st.session_state["watchlist"])
                 st.rerun()
         else:
-            if wl_col.button("＋ 加入清單", key="wl_add", width='stretch'):
+            if wl_col.button("＋ 加入清單", key="wl_add", width="stretch"):
                 st.session_state["watchlist"].append({"symbol": cur_sym, "name": cur_name})
                 _save_watchlist(st.session_state["watchlist"])
                 st.rerun()
@@ -388,7 +389,7 @@ if _flow_symbol:
             else:
                 break
         st.metric("外資連續買超天數", f"{streak} 天")
-        st.dataframe(flow_df, width='stretch', hide_index=True)
+        st.dataframe(flow_df, width="stretch", hide_index=True)
 
 st.divider()
 
@@ -399,13 +400,13 @@ if meta.get("date"):
     qa1.page_link(
         "pages/3_Daily_Scan.py",
         label=f"📊 帶入 {meta['date']} 到 Daily Scan",
-        width='stretch',
+        width="stretch",
     )
 if meta.get("symbol"):
     qa2.page_link(
         "pages/7_Inspect.py",
         label=f"🔍 前往 Inspect 查看{meta['symbol']}",
-        width='stretch',
+        width="stretch",
     )
 
 # Copy params

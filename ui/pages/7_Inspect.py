@@ -73,6 +73,7 @@ def _cached_scan_results(trading_date, market, strategy_id, direction, limit: in
 def _cached_job_runs(limit: int):
     return get_latest_job_runs(get_engine(), limit=limit)
 
+
 st.set_page_config(page_title="Inspect | Sentinel", layout="wide")
 inject_css()
 st.title("🔍 Inspect")

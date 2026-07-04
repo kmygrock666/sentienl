@@ -22,7 +22,7 @@ store = get_store()
 
 # ── 控制列 ─────────────────────────────────────────────────────────────────
 ctrl1, ctrl2, ctrl3 = st.columns([1, 2, 5])
-if ctrl1.button("🔄 手動刷新", width='stretch'):
+if ctrl1.button("🔄 手動刷新", width="stretch"):
     poll_all_running()
     st.rerun()
 
@@ -84,16 +84,14 @@ else:
         with col_action:
             if task.status in ("success", "failed", "stopped"):
                 action_col1, action_col2 = st.columns(2)
-                if action_col1.button(
-                    "重跑", key=f"rerun_{task.task_id}", width='stretch'
-                ):
+                if action_col1.button("重跑", key=f"rerun_{task.task_id}", width="stretch"):
                     new_task = rerun_task(task)
                     st.success(f"已重跑 → #{new_task.task_id}")
                     st.rerun()
                 result_page = _RESULT_PAGES.get(task.command_id)
                 if result_page:
                     try:
-                        action_col2.page_link(result_page, label="結果", width='stretch')
+                        action_col2.page_link(result_page, label="結果", width="stretch")
                     except Exception:
                         pass
             elif task.status == "running":

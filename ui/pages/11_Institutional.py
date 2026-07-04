@@ -70,7 +70,7 @@ except Exception as e:
 
 if not available_dates:
     st.info("尚無法人買賣超資料，請先至 Data Sync 頁面執行 sync-institutional")
-    st.page_link("pages/2_Data_Sync.py", label="🔄 前往 Data Sync", width='content')
+    st.page_link("pages/2_Data_Sync.py", label="🔄 前往 Data Sync", width="content")
     st.stop()
 
 # ── 控制列 ──────────────────────────────────────────────────────────────────
@@ -120,7 +120,7 @@ def _render_ranking_table(net_column: str, ascending: bool) -> None:
         st.info("此條件下無資料")
         return
     styled = df.style.map(_net_color, subset=["買賣超(張)"]).format({"買賣超(張)": "{:,}"})
-    st.dataframe(styled, width='stretch', hide_index=True)
+    st.dataframe(styled, width="stretch", hide_index=True)
 
 
 def _render_ranking_tab(net_column: str) -> None:
@@ -320,7 +320,7 @@ def _render_kline_tab() -> None:
     fmt: dict = {c: "{:,}" for c in net_cols}
     fmt["日期"] = "{:%Y-%m-%d}"
     styled = recent10.style.map(_net_color, subset=net_cols).format(fmt, na_rep="—")
-    st.dataframe(styled, width='stretch', hide_index=True)
+    st.dataframe(styled, width="stretch", hide_index=True)
 
 
 # ── 頁籤 ────────────────────────────────────────────────────────────────────
@@ -360,7 +360,7 @@ with tabs[-2]:
             .map(_net_color, subset=["期間累計(張)"])
             .format({"期間累計(張)": "{:,}"})
         )
-        st.dataframe(styled_streak, width='stretch', hide_index=True)
+        st.dataframe(styled_streak, width="stretch", hide_index=True)
 
 # ── 底部導引 ────────────────────────────────────────────────────────────────
 st.divider()

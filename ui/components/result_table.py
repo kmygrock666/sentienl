@@ -131,7 +131,7 @@ def render_scan_results(df: pd.DataFrame) -> None:
         csv,
         file_name="scan_results.csv",
         mime="text/csv",
-        width='stretch',
+        width="stretch",
     )
 
     # TradingView watchlist 匯出
@@ -147,5 +147,5 @@ def render_scan_results(df: pd.DataFrame) -> None:
             tv_txt.encode("utf-8"),
             file_name="tradingview.txt",
             mime="text/plain",
-            width='stretch',
+            width="stretch",
         )

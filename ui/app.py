@@ -7,13 +7,12 @@ import sys
 
 sys.path.insert(0, str(pathlib.Path(__file__).parent.parent))
 
+import json
 from datetime import date, timedelta
 from typing import Optional
 
 import pandas as pd
 import streamlit as st
-
-import json
 
 from ui.components.layout import inject_css, section_header
 from ui.services.command_runner import find_running_task, get_store, launch_task, poll_all_running
@@ -70,6 +69,7 @@ def _cached_data_freshness():
 def _cached_job_runs(limit: int = 10):
     return get_latest_job_runs(get_engine(), limit=limit)
 
+
 st.set_page_config(
     page_title="Sentinel 選股系統",
     page_icon="📡",
@@ -107,7 +107,7 @@ _running_banner()
 section_header("快速操作", "一鍵啟動常用任務（長任務在 Task Center 追蹤）")
 qa1, qa2, qa3, qa4, qa5 = st.columns(5)
 
-if qa1.button("▶ Sync（TWSE + TPEX）", width='stretch'):
+if qa1.button("▶ Sync（TWSE + TPEX）", width="stretch"):
     _running_sync = find_running_task(SYNC.command_id)
     if _running_sync:
         st.warning(
@@ -118,7 +118,7 @@ if qa1.button("▶ Sync（TWSE + TPEX）", width='stretch'):
         st.session_state["_last_sync_task"] = task.task_id
         st.rerun()
 
-if qa2.button("▶ Run（最新收盤日）", width='stretch'):
+if qa2.button("▶ Run（最新收盤日）", width="stretch"):
     _running_run = find_running_task(RUN.command_id)
     if _running_run:
         st.warning(
@@ -137,7 +137,7 @@ if qa2.button("▶ Run（最新收盤日）", width='stretch'):
         st.session_state["_last_run_task"] = task.task_id
         st.rerun()
 
-if qa3.button("▶ Run Intraday", width='stretch'):
+if qa3.button("▶ Run Intraday", width="stretch"):
     _running_intraday = find_running_task(RUN_INTRADAY.command_id)
     if _running_intraday:
         st.warning(
@@ -148,11 +148,11 @@ if qa3.button("▶ Run Intraday", width='stretch'):
         st.session_state["_last_intraday_task"] = task.task_id
         st.rerun()
 
-if qa4.button("🔄 清除快取並刷新", width='stretch'):
+if qa4.button("🔄 清除快取並刷新", width="stretch"):
     st.cache_resource.clear()
     st.rerun()
 
-if qa5.button("📥 每日盤後", width='stretch'):
+if qa5.button("📥 每日盤後", width="stretch"):
     st.switch_page("pages/12_Daily_Fetch.py")
 
 # ── 快速操作後 CTA ──────────────────────────────────────────────────────────
@@ -190,7 +190,7 @@ with _status_col:
 with _action_col:
     st.write("")
     if _db_status == "stopped":
-        if st.button("▶ 啟動 DB", width='stretch', type="primary"):
+        if st.button("▶ 啟動 DB", width="stretch", type="primary"):
             with st.spinner("正在啟動 DB 容器..."):
                 _ok, _msg = start_db_container()
             if _ok:
@@ -201,7 +201,7 @@ with _action_col:
             else:
                 st.error(f"啟動失敗：{_msg}")
     elif _db_status == "running":
-        if st.button("🔄 重新檢查", width='stretch'):
+        if st.button("🔄 重新檢查", width="stretch"):
             st.cache_data.clear()
             st.cache_resource.clear()
             st.rerun()

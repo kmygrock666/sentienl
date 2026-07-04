@@ -71,7 +71,7 @@ def _run_section(spec, section_key: str) -> None:
     with run_col:
         st.write("")
         st.write("")
-        clicked = st.button("▶ 執行", key=f"btn_{section_key}", width='stretch')
+        clicked = st.button("▶ 執行", key=f"btn_{section_key}", width="stretch")
 
     if clicked:
         if spec.validator:

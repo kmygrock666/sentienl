@@ -128,7 +128,7 @@ _price_btn_label = "重新同步" if _price_synced else "▶ 同步今日股價"
 
 if _price_running:
     st.info(f"⚙️ 同步中（#{_price_running.task_id}）→ [Task Center](/9_Task_Center)")
-elif st.button(_price_btn_label, key="btn_price_sync", width='stretch'):
+elif st.button(_price_btn_label, key="btn_price_sync", width="stretch"):
     task = launch_task(SYNC, {"market": ["TWSE", "TPEX"]})
     st.session_state["_df_price_task"] = task.task_id
     st.rerun()
@@ -153,7 +153,7 @@ _inst_btn_label = "重新同步" if _inst_synced else "▶ 同步今日法人資
 
 if _inst_running:
     st.info(f"⚙️ 同步中（#{_inst_running.task_id}）→ [Task Center](/9_Task_Center)")
-elif st.button(_inst_btn_label, key="btn_inst_sync", width='stretch'):
+elif st.button(_inst_btn_label, key="btn_inst_sync", width="stretch"):
     task = launch_task(SYNC_INSTITUTIONAL, {"date": _today.isoformat()})
     st.session_state["_df_inst_task"] = task.task_id
     st.rerun()
@@ -215,7 +215,7 @@ with tab_batch:
             f"▶ 批次同步（{len(selected_symbols)} 檔）",
             key="btn_mf_batch",
             disabled=len(selected_symbols) == 0,
-            width='stretch',
+            width="stretch",
         ):
             for sym in selected_symbols:
                 launch_task(
@@ -226,7 +226,9 @@ with tab_batch:
                         "end-date": _today.isoformat(),
                     },
                 )
-            st.success(f"已送出 {len(selected_symbols)} 個主力分點同步任務，請至 [Task Center](/9_Task_Center) 追蹤")
+            st.success(
+                f"已送出 {len(selected_symbols)} 個主力分點同步任務，請至 [Task Center](/9_Task_Center) 追蹤"
+            )
             st.rerun()
 
 # ── Tab B: 單一臨時 ───────────────────────────────────────────────────────
@@ -238,7 +240,7 @@ with tab_single:
     _single_start = col_start.date_input("開始日期 *", value=_today, key="mf_single_start")
     _single_end = col_end.date_input("結束日期 *", value=_today, key="mf_single_end")
 
-    if st.button("▶ 同步", key="btn_mf_single", width='stretch'):
+    if st.button("▶ 同步", key="btn_mf_single", width="stretch"):
         if not _single_sym:
             st.error("請輸入股票代號")
         elif _single_start > _single_end:
