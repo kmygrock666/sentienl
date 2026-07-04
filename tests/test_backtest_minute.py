@@ -12,7 +12,7 @@ from datetime import date
 import pandas as pd
 import pytest
 
-import sentinel.backtest_minute as bm
+import sentinel.backtest.minute as bm
 
 
 def _prices_one_row() -> pd.DataFrame:

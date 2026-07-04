@@ -9,11 +9,11 @@ from sqlalchemy.orm import Session
 
 from sentinel.cli.common import create_engine_with_schema, require_database_url
 from sentinel.config import Settings
-from sentinel.db import create_db_engine, create_schema
 from sentinel.logging_utils import get_logger
-from sentinel.persistence import backfill_aggregated_bars
 from sentinel.services.backfill_service import backfill_yahoo_prices
 from sentinel.storage import load_price_dataset
+from sentinel.storage.engine import create_db_engine, create_schema
+from sentinel.storage.persistence import backfill_aggregated_bars
 from sentinel.utils import parse_iso_date
 
 _logger = get_logger(__name__)

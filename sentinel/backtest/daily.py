@@ -8,7 +8,7 @@ from typing import Optional
 
 import pandas as pd
 
-from sentinel.strategies import scan_strategies
+from sentinel.analysis.strategies import scan_strategies
 
 
 def run_backtest(

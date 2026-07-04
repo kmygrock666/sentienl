@@ -8,7 +8,7 @@ from sqlalchemy import func
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session
 
-from sentinel.models import MainForceDaily
+from sentinel.domain.models import MainForceDaily
 
 _MAIN_FORCE_COLUMNS = ["日期", "主力買超", "主力賣超", "主力買賣超"]
 

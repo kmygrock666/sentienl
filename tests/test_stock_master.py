@@ -3,7 +3,7 @@ from __future__ import annotations
 import requests
 
 from sentinel.config import Settings
-from sentinel.stock_master import (
+from sentinel.datasources.stock_master import (
     TpexStockMasterProvider,
     TwseStockMasterProvider,
     build_stock_master_provider_registry,
@@ -240,7 +240,7 @@ def test_twse_stock_master_provider_network_decodes_cp950_html(monkeypatch) -> N
     def fake_get(*args, **kwargs):
         return FakeResponse()
 
-    monkeypatch.setattr("sentinel.stock_master.requests.get", fake_get)
+    monkeypatch.setattr("sentinel.datasources.stock_master.requests.get", fake_get)
 
     settings = Settings(
         twse_stock_master_url="https://example.com/twse",
@@ -258,7 +258,7 @@ def test_fetch_stock_master_with_diagnostics_classifies_dns_failure(monkeypatch)
             "HTTPSConnection(host='isin.twse.com.tw', port=443): Failed to resolve 'isin.twse.com.tw'"
         )
 
-    monkeypatch.setattr("sentinel.stock_master.requests.get", fake_get)
+    monkeypatch.setattr("sentinel.datasources.stock_master.requests.get", fake_get)
 
     _, diagnostics = fetch_stock_master_with_diagnostics(
         markets=["TWSE"],
@@ -274,7 +274,7 @@ def test_fetch_stock_master_with_diagnostics_classifies_timeout_failure(monkeypa
     def fake_get(*args, **kwargs):
         raise requests.ReadTimeout("read timed out")
 
-    monkeypatch.setattr("sentinel.stock_master.requests.get", fake_get)
+    monkeypatch.setattr("sentinel.datasources.stock_master.requests.get", fake_get)
 
     _, diagnostics = fetch_stock_master_with_diagnostics(
         markets=["TWSE"],
@@ -298,7 +298,7 @@ def test_fetch_stock_master_with_diagnostics_classifies_http_status_failure(monk
     def fake_get(*args, **kwargs):
         return FailingResponse()
 
-    monkeypatch.setattr("sentinel.stock_master.requests.get", fake_get)
+    monkeypatch.setattr("sentinel.datasources.stock_master.requests.get", fake_get)
 
     _, diagnostics = fetch_stock_master_with_diagnostics(
         markets=["TWSE"],

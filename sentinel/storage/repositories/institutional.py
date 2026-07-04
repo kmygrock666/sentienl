@@ -8,7 +8,7 @@ from sqlalchemy import func
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session
 
-from sentinel.models import InstitutionalFlow, Stock
+from sentinel.domain.models import InstitutionalFlow, Stock
 
 _INSTITUTIONAL_COLUMNS = ["日期", "外資", "投信", "自營商", "合計"]
 

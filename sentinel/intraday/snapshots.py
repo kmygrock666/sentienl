@@ -6,8 +6,8 @@ from datetime import date, datetime
 from sqlalchemy import desc, select
 from sqlalchemy.orm import Session
 
+from sentinel.domain.models import DailyPrice, IntradaySnapshot
 from sentinel.intraday.fetcher import MISFetcher, parse_mis_data
-from sentinel.models import DailyPrice, IntradaySnapshot
 
 logger = logging.getLogger(__name__)
 

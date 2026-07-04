@@ -5,7 +5,7 @@ from datetime import date
 import pandas as pd
 import pytest
 
-from sentinel.providers import TpexDailyPriceProvider, TwseDailyPriceProvider
+from sentinel.datasources.providers import TpexDailyPriceProvider, TwseDailyPriceProvider
 
 _TWSE_PAYLOAD = """
 "114年03月05日 每日收盤行情(全部(不含權證、牛熊證))"
@@ -66,8 +66,8 @@ def test_fetch_csv_with_retry_recovers_after_failures(monkeypatch) -> None:
     """前兩次網路錯誤後第三次成功，應回傳解析結果並重試對應次數。"""
     import requests as _requests
 
-    from sentinel import providers as providers_module
     from sentinel.config import Settings
+    from sentinel.datasources import providers as providers_module
 
     calls = {"n": 0}
 
@@ -107,8 +107,8 @@ def test_fetch_csv_with_retry_raises_after_exhaustion(monkeypatch) -> None:
     """所有嘗試皆失敗時應拋出 RuntimeError 並重試 max_retries 次。"""
     import requests as _requests
 
-    from sentinel import providers as providers_module
     from sentinel.config import Settings
+    from sentinel.datasources import providers as providers_module
 
     calls = {"n": 0}
 

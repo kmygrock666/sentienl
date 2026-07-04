@@ -6,7 +6,7 @@ from alembic import context
 from sqlalchemy import engine_from_config, pool
 
 from sentinel.config import Settings
-from sentinel.models import Base
+from sentinel.domain.models import Base
 
 config = context.config
 

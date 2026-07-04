@@ -8,8 +8,7 @@ import pytest
 from sqlalchemy.orm import Session
 
 from sentinel.cli import main
-from sentinel.db import create_db_engine
-from sentinel.models import (
+from sentinel.domain.models import (
     DailyPrice,
     DataQuarantine,
     ScanResult,
@@ -17,6 +16,7 @@ from sentinel.models import (
     TechnicalIndicator,
     TradingCalendar,
 )
+from sentinel.storage.engine import create_db_engine
 
 
 def test_sync_calendar_fixture_mode_writes_outputs_and_db(tmp_path, monkeypatch) -> None:

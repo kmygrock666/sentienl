@@ -5,7 +5,7 @@ import argparse
 from sqlalchemy.engine import Engine
 
 from sentinel.config import Settings
-from sentinel.db import create_db_engine, create_schema
+from sentinel.storage.engine import create_db_engine, create_schema
 
 MARKET_LABELS = {"TWSE": "上市", "TPEX": "上櫃"}
 

@@ -4,7 +4,7 @@ import pandas as pd
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session
 
-from sentinel.models import JobRun
+from sentinel.domain.models import JobRun
 
 
 def get_latest_job_runs(engine: Engine, limit: int = 10) -> pd.DataFrame:

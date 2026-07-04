@@ -7,8 +7,8 @@ from typing import Dict, Optional
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session
 
-from sentinel.providers import normalize_market_name
-from sentinel.query import get_latest_dates_by_market
+from sentinel.datasources.providers import normalize_market_name
+from sentinel.storage.repositories.inspect_queries import get_latest_dates_by_market
 
 DEFAULT_SYNC_START_DATE = date(2024, 1, 1)
 

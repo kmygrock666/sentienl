@@ -7,8 +7,8 @@ from typing import Any, Dict, List
 from sqlalchemy import and_, desc, func, select
 from sqlalchemy.orm import Session
 
+from sentinel.domain.models import DailyPrice, IntradayIndicator, IntradaySnapshot
 from sentinel.intraday.fetcher import MISFetcher, parse_mis_data
-from sentinel.models import DailyPrice, IntradayIndicator, IntradaySnapshot
 
 logger = logging.getLogger(__name__)
 

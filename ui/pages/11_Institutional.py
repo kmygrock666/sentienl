@@ -174,12 +174,12 @@ def _render_main_force_sync_expander(
         from sqlalchemy.orm import Session as _SASession
 
         from sentinel.config import Settings as _Settings
-        from sentinel.main_force import (
+        from sentinel.datasources.main_force import (
             FinMindError,
             compute_main_force_daily,
             fetch_trading_daily_report,
         )
-        from sentinel.persistence import upsert_main_force_daily
+        from sentinel.storage.persistence import upsert_main_force_daily
 
         try:
             with st.spinner("向 FinMind 取得券商分點資料…"):

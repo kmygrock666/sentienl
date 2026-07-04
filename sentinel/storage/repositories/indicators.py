@@ -7,7 +7,7 @@ import pandas as pd
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session
 
-from sentinel.models import TechnicalIndicator
+from sentinel.domain.models import TechnicalIndicator
 
 
 def get_indicators(

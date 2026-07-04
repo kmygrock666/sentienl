@@ -9,8 +9,8 @@ import pytest
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session
 
-from sentinel.db import create_db_engine, create_schema
-from sentinel.models import InstitutionalFlow, MainForceDaily, Stock
+from sentinel.domain.models import InstitutionalFlow, MainForceDaily, Stock
+from sentinel.storage.engine import create_db_engine, create_schema
 from ui.services.queries import (
     get_foreign_streak_ranking,
     get_institutional_dates,

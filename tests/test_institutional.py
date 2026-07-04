@@ -7,8 +7,7 @@ import pytest
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from sentinel.db import create_db_engine, create_schema
-from sentinel.institutional import (
+from sentinel.datasources.institutional import (
     INSTITUTIONAL_ENRICH_COLUMNS,
     TpexInstitutionalProvider,
     TwseT86Provider,
@@ -16,8 +15,9 @@ from sentinel.institutional import (
     enrich_with_institutional,
     load_institutional_frame,
 )
-from sentinel.models import InstitutionalFlow
-from sentinel.persistence import upsert_institutional_flows
+from sentinel.domain.models import InstitutionalFlow
+from sentinel.storage.engine import create_db_engine, create_schema
+from sentinel.storage.persistence import upsert_institutional_flows
 
 _TWSE_PAYLOAD = """
 "114年03月05日 三大法人買賣超日報"

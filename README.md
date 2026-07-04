@@ -19,19 +19,18 @@ sentinel/
 ├── scripts/                    # 輔助腳本（不進生產）
 ├── tests/                      # pytest 測試套件
 │   └── fixtures/               # 離線測試 fixture
-├── sentinel/             # 主套件
-│   ├── intraday/               # 日內策略模組
-│   ├── cli.py                  # CLI 入口
-│   ├── pipeline.py             # 抓取→計算→掃描→輸出
-│   ├── providers.py            # TWSE / TPEx provider
-│   ├── indicators.py           # 技術指標引擎
-│   ├── strategies.py           # 策略掃描邏輯
-│   ├── backtest.py             # 回測引擎
-│   ├── models.py               # SQLAlchemy ORM
-│   ├── db.py                   # DB engine / schema 初始化
-│   ├── persistence.py          # DB 寫入邏輯
+├── sentinel/             # 主套件（依賴方向：介面層 → services → 其餘各層）
+│   ├── domain/                 # 領域層：ORM models、交易日曆規則（不做 I/O 編排）
+│   ├── datasources/            # 資料來源層：TWSE/TPEX/FinMind/Yahoo 爬取
+│   ├── analysis/               # 運算層：技術指標、策略掃描、資料品質（純函數）
+│   ├── backtest/               # 回測：daily（日線）與 minute（5m K 線）
+│   ├── storage/                # 儲存層：engine、persistence、CSV datasets、
+│   │   └── repositories/       #   讀取查詢（UI/CLI 共用，SQL 單一出處）
+│   ├── services/               # 應用服務層：pipeline、每日掃描、回測、同步計畫
+│   ├── intraday/               # 日內策略 bounded context（明日之星）
+│   ├── cli/                    # CLI 介面層：參數解析與表格呈現，邏輯委派 services
 │   ├── config.py               # pydantic-settings（TS_ prefix）
-│   └── ...
+│   └── *.py                    # 舊路徑相容 shim（過渡期後移除）
 ├── .env.example
 ├── .pre-commit-config.yaml
 ├── docker-compose.yml

@@ -52,7 +52,7 @@ def _lookup_names(symbols: list[str]) -> dict[str, str]:
     try:
         from sqlalchemy.orm import Session
 
-        from sentinel.models import Stock
+        from sentinel.domain.models import Stock
 
         engine = get_engine()
         with Session(engine) as s:

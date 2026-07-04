@@ -2,20 +2,20 @@ from __future__ import annotations
 
 from datetime import date
 
-from sentinel.calendar import (
-    build_trading_calendar,
-    filter_trading_dates,
-    is_default_trading_day,
-    is_weekend,
-)
 from sentinel.config import Settings
-from sentinel.official_calendar import (
+from sentinel.datasources.official_calendar import (
     SOURCE_MODE_FIXTURE,
     TwseOfficialTradingCalendarProvider,
     build_official_calendar_provider_registry,
     fetch_official_trading_calendar,
     parse_tpex_holiday_html,
     parse_twse_holiday_response,
+)
+from sentinel.domain.calendar import (
+    build_trading_calendar,
+    filter_trading_dates,
+    is_default_trading_day,
+    is_weekend,
 )
 
 

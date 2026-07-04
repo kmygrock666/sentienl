@@ -4,8 +4,8 @@ from datetime import date, timedelta
 
 import pandas as pd
 
-from sentinel.calendar import save_trading_calendar
-from sentinel.pipeline import compute_indicators, save_results, scan_strategy
+from sentinel.domain.calendar import save_trading_calendar
+from sentinel.services.pipeline import compute_indicators, save_results, scan_strategy
 
 
 def build_sample_prices(days: int = 25) -> pd.DataFrame:

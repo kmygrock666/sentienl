@@ -11,7 +11,8 @@ from sqlalchemy.orm import Session
 
 from sentinel.cli.common import MARKET_LABELS, create_engine_with_schema, require_database_url
 from sentinel.config import Settings
-from sentinel.db import create_db_engine
+from sentinel.datasources.minute_bars import import_minute_bars_csv
+from sentinel.domain.models import Stock
 from sentinel.intraday.engine import run_tomorrow_star_scan
 from sentinel.intraday.indicators import calculate_intraday_win_rates
 from sentinel.intraday.snapshots import capture_intraday_snapshot
@@ -21,8 +22,7 @@ from sentinel.intraday.trades import (
     monitor_and_close_intraday_trades,
     update_intraday_trades,
 )
-from sentinel.minute_bars import import_minute_bars_csv
-from sentinel.models import Stock
+from sentinel.storage.engine import create_db_engine
 
 
 def register(subparsers: argparse._SubParsersAction) -> None:

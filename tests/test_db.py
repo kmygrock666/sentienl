@@ -6,8 +6,7 @@ import pandas as pd
 from sqlalchemy import inspect
 from sqlalchemy.orm import Session
 
-from sentinel.db import create_db_engine, create_schema
-from sentinel.models import (
+from sentinel.domain.models import (
     DailyPrice,
     DataQuarantine,
     JobRun,
@@ -17,8 +16,9 @@ from sentinel.models import (
     TechnicalIndicator,
     TradingCalendar,
 )
-from sentinel.persistence import finish_job_run, persist_pipeline_results, start_job_run
-from sentinel.pipeline import compute_indicators, scan_strategy
+from sentinel.services.pipeline import compute_indicators, scan_strategy
+from sentinel.storage.engine import create_db_engine, create_schema
+from sentinel.storage.persistence import finish_job_run, persist_pipeline_results, start_job_run
 
 
 def test_create_schema_builds_core_tables(tmp_path) -> None:
@@ -387,7 +387,7 @@ def test_upsert_daily_prices_none_turnover_persists_as_null(tmp_path) -> None:
     engine = create_db_engine(f"sqlite:///{database_path}")
     create_schema(engine)
 
-    from sentinel.persistence import upsert_daily_prices
+    from sentinel.storage.persistence import upsert_daily_prices
 
     prices = pd.DataFrame(
         [
@@ -422,7 +422,7 @@ def test_upsert_technical_indicators_excludes_rows_with_no_matching_price_key(tm
     engine = create_db_engine(f"sqlite:///{database_path}")
     create_schema(engine)
 
-    from sentinel.persistence import upsert_daily_prices, upsert_technical_indicators
+    from sentinel.storage.persistence import upsert_daily_prices, upsert_technical_indicators
 
     prices = pd.DataFrame(
         [

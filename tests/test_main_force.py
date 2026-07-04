@@ -10,15 +10,15 @@ import pytest
 from sqlalchemy.orm import Session
 
 from sentinel.config import Settings
-from sentinel.db import create_db_engine, create_schema
-from sentinel.main_force import (
+from sentinel.datasources.main_force import (
     REPORT_COLUMNS,
     FinMindError,
     compute_main_force_daily,
     fetch_trading_daily_report,
 )
-from sentinel.models import MainForceDaily
-from sentinel.persistence import upsert_main_force_daily
+from sentinel.domain.models import MainForceDaily
+from sentinel.storage.engine import create_db_engine, create_schema
+from sentinel.storage.persistence import upsert_main_force_daily
 
 # ═══════════════════════════════════════════════════════════════════════════
 # compute_main_force_daily（純邏輯）
@@ -212,7 +212,7 @@ def test_fetch_success_returns_rows(monkeypatch: pytest.MonkeyPatch) -> None:
             }
         )
 
-    monkeypatch.setattr("sentinel.main_force.requests.get", _fake_get)
+    monkeypatch.setattr("sentinel.datasources.main_force.requests.get", _fake_get)
 
     df = fetch_trading_daily_report(
         "5347", date(2026, 6, 2), date(2026, 6, 9), _settings("token-x")
@@ -232,7 +232,7 @@ def test_fetch_empty_data_returns_empty_frame_with_columns(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setattr(
-        "sentinel.main_force.requests.get",
+        "sentinel.datasources.main_force.requests.get",
         lambda url, params=None, timeout=None: _FakeResponse(
             {"msg": "success", "status": 200, "data": []}
         ),
@@ -249,7 +249,7 @@ def test_fetch_empty_data_returns_empty_frame_with_columns(
 def test_fetch_level_insufficient_surfaces_api_msg(monkeypatch: pytest.MonkeyPatch) -> None:
     level_msg = "Your level is free. Please update your user level..."
     monkeypatch.setattr(
-        "sentinel.main_force.requests.get",
+        "sentinel.datasources.main_force.requests.get",
         lambda url, params=None, timeout=None: _FakeResponse(
             {"msg": level_msg, "status": 400}, status_code=400
         ),
@@ -269,7 +269,7 @@ def test_fetch_network_error_wrapped_as_finmind_error(monkeypatch: pytest.Monkey
     def _boom(url, params=None, timeout=None):
         raise _requests.ConnectionError("connection refused")
 
-    monkeypatch.setattr("sentinel.main_force.requests.get", _boom)
+    monkeypatch.setattr("sentinel.datasources.main_force.requests.get", _boom)
 
     with pytest.raises(FinMindError):
         fetch_trading_daily_report("5347", date(2026, 6, 2), date(2026, 6, 9), _settings("token-x"))
@@ -286,7 +286,7 @@ def test_fetch_network_error_redacts_token(monkeypatch: pytest.MonkeyPatch) -> N
             f"Max retries exceeded with url: /?dataset=X&token={secret}"
         )
 
-    monkeypatch.setattr("sentinel.main_force.requests.get", _boom)
+    monkeypatch.setattr("sentinel.datasources.main_force.requests.get", _boom)
 
     with pytest.raises(FinMindError) as excinfo:
         fetch_trading_daily_report("5347", date(2026, 6, 2), date(2026, 6, 9), _settings(secret))

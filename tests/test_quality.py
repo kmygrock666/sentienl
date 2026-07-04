@@ -4,7 +4,7 @@ from datetime import date
 
 import pandas as pd
 
-from sentinel.quality import (
+from sentinel.analysis.quality import (
     RULE_HIGH_GTE_MAX_OPEN_CLOSE,
     RULE_LOW_LTE_MIN_OPEN_CLOSE,
     RULE_PRICE_CHANGE_SPIKE,

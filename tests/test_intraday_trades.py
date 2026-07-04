@@ -5,9 +5,9 @@ from datetime import date
 import pytest
 from sqlalchemy.orm import Session
 
-from sentinel.db import create_db_engine, create_schema
+from sentinel.domain.models import IntradayTrade
 from sentinel.intraday.trades import compute_open_trades_pnl
-from sentinel.models import IntradayTrade
+from sentinel.storage.engine import create_db_engine, create_schema
 
 
 @pytest.fixture()

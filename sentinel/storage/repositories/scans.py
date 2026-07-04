@@ -10,7 +10,7 @@ from sqlalchemy import func
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session
 
-from sentinel.models import DailyPrice, ScanResult, Stock
+from sentinel.domain.models import DailyPrice, ScanResult, Stock
 
 
 def _strategy_direction_map() -> dict[str, str]:

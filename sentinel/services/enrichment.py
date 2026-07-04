@@ -4,7 +4,7 @@ import pandas as pd
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session
 
-from sentinel.institutional import enrich_with_institutional, load_institutional_frame
+from sentinel.datasources.institutional import enrich_with_institutional, load_institutional_frame
 from sentinel.logging_utils import get_logger
 
 _logger = get_logger(__name__)

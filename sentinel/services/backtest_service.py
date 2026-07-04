@@ -10,12 +10,12 @@ import pandas as pd
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session
 
-from sentinel.backtest import run_backtest, save_backtest_results
-from sentinel.backtest_minute import run_minute_backtest, save_minute_backtest_results
+from sentinel.backtest.daily import run_backtest, save_backtest_results
+from sentinel.backtest.minute import run_minute_backtest, save_minute_backtest_results
 from sentinel.logging_utils import get_logger
-from sentinel.persistence import finish_job_run, start_job_run
-from sentinel.pipeline import compute_indicators
+from sentinel.services.pipeline import compute_indicators
 from sentinel.storage import load_price_dataset
+from sentinel.storage.persistence import finish_job_run, start_job_run
 
 _logger = get_logger(__name__)
 

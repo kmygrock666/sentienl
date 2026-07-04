@@ -9,16 +9,16 @@ from typing import Dict, List, Optional
 import pandas as pd
 from sqlalchemy.engine import Engine
 
-from sentinel.calendar import build_trading_calendar
-from sentinel.completeness import build_run_completeness_summary
+from sentinel.analysis.completeness import build_run_completeness_summary
+from sentinel.analysis.quality import validate_daily_prices
 from sentinel.config import Settings
+from sentinel.datasources.official_calendar import fetch_official_trading_calendar
+from sentinel.domain.calendar import build_trading_calendar
 from sentinel.logging_utils import get_logger
-from sentinel.official_calendar import fetch_official_trading_calendar
-from sentinel.persistence import finish_job_run, persist_pipeline_results, start_job_run
-from sentinel.pipeline import compute_indicators, fetch_prices, save_results, scan_strategy
-from sentinel.quality import validate_daily_prices
 from sentinel.services.enrichment import apply_institutional_enrichment
+from sentinel.services.pipeline import compute_indicators, fetch_prices, save_results, scan_strategy
 from sentinel.storage import load_price_dataset, save_price_dataset, upsert_prices
+from sentinel.storage.persistence import finish_job_run, persist_pipeline_results, start_job_run
 
 _logger = get_logger(__name__)
 

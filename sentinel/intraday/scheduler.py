@@ -9,12 +9,12 @@ from sqlalchemy import and_, select
 from sqlalchemy.orm import Session
 
 from sentinel.config import Settings
-from sentinel.db import create_db_engine
+from sentinel.domain.models import TradingCalendar
 from sentinel.intraday.engine import run_tomorrow_star_scan
 from sentinel.intraday.notifiers import TelegramNotifier, build_telegram_notifier
 from sentinel.intraday.snapshots import capture_intraday_snapshot
 from sentinel.intraday.trades import monitor_and_close_intraday_trades
-from sentinel.models import TradingCalendar
+from sentinel.storage.engine import create_db_engine
 
 logger = logging.getLogger(__name__)
 

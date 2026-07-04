@@ -7,10 +7,10 @@ from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session
 
 from sentinel.config import Settings
-from sentinel.persistence import upsert_daily_prices
-from sentinel.providers import fetch_yahoo_historical
-from sentinel.stock_master import load_stock_master
+from sentinel.datasources.providers import fetch_yahoo_historical
+from sentinel.datasources.stock_master import load_stock_master
 from sentinel.storage import load_price_dataset, save_price_dataset, upsert_prices
+from sentinel.storage.persistence import upsert_daily_prices
 
 
 def backfill_yahoo_prices(

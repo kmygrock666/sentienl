@@ -6,7 +6,7 @@ from sqlalchemy import text
 from sqlalchemy.engine import Engine
 
 from sentinel.config import Settings
-from sentinel.db import create_db_engine
+from sentinel.storage.engine import create_db_engine
 
 _REQUIRED_TABLES = {"stocks", "daily_prices", "scan_results"}
 

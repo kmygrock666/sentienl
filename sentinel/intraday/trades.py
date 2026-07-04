@@ -7,7 +7,7 @@ from typing import Any, Callable, Dict, List
 from sqlalchemy import and_, select
 from sqlalchemy.orm import Session
 
-from sentinel.models import DailyPrice, IntradayTrade
+from sentinel.domain.models import DailyPrice, IntradayTrade
 
 logger = logging.getLogger(__name__)
 
@@ -276,7 +276,7 @@ def add_manual_intraday_trade(
     Manually add a simulated intraday trade to the database.
     If market is None, auto-detect from the Stock table.
     """
-    from sentinel.models import Stock
+    from sentinel.domain.models import Stock
 
     if market is None:
         # Auto-detect market from Stock table

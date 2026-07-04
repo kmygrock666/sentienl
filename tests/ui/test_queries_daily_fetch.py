@@ -8,8 +8,8 @@ import pytest
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session
 
-from sentinel.db import create_db_engine, create_schema
-from sentinel.models import InstitutionalFlow, MainForceDaily
+from sentinel.domain.models import InstitutionalFlow, MainForceDaily
+from sentinel.storage.engine import create_db_engine, create_schema
 from ui.services.queries import (
     get_latest_institutional_date,
     get_latest_main_force_dates,

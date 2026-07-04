@@ -4,9 +4,9 @@ from datetime import date, timedelta
 
 import pandas as pd
 
-from sentinel.backtest import run_backtest
-from sentinel.pipeline import compute_indicators
-from sentinel.strategies import load_strategy_definitions, scan_strategies
+from sentinel.analysis.strategies import load_strategy_definitions, scan_strategies
+from sentinel.backtest.daily import run_backtest
+from sentinel.services.pipeline import compute_indicators
 
 
 def build_strategy_prices(days: int = 40) -> pd.DataFrame:

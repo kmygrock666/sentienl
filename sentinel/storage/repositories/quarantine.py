@@ -5,7 +5,7 @@ from sqlalchemy import func
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session
 
-from sentinel.models import DataQuarantine
+from sentinel.domain.models import DataQuarantine
 
 
 def get_quarantine_summary(engine: Engine) -> dict:

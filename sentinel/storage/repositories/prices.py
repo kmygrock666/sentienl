@@ -8,7 +8,7 @@ from sqlalchemy import func
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session
 
-from sentinel.models import DailyPrice
+from sentinel.domain.models import DailyPrice
 
 
 def get_data_freshness(engine: Engine) -> pd.DataFrame:

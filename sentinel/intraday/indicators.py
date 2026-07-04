@@ -7,7 +7,7 @@ import pandas as pd
 from sqlalchemy import and_, select
 from sqlalchemy.orm import Session
 
-from sentinel.models import DailyPrice, IntradayIndicator, Stock
+from sentinel.domain.models import DailyPrice, IntradayIndicator, Stock
 
 logger = logging.getLogger(__name__)
 

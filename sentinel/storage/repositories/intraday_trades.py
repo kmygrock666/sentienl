@@ -6,7 +6,7 @@ import pandas as pd
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session
 
-from sentinel.models import IntradayTrade, Stock
+from sentinel.domain.models import IntradayTrade, Stock
 
 
 def get_intraday_trades(engine: Engine, status: Optional[str] = None) -> pd.DataFrame:

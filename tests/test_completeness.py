@@ -4,7 +4,7 @@ from datetime import date
 
 import pandas as pd
 
-from sentinel.completeness import build_run_completeness_summary
+from sentinel.analysis.completeness import build_run_completeness_summary
 
 
 def test_build_run_completeness_summary_counts_expected_actual_and_quarantine() -> None:
